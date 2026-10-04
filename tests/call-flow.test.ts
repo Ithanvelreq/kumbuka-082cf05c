@@ -41,13 +41,13 @@ test("Swahili choice gives Swahili prompts", () => {
   assert.match(tr.say[0], /namba ya mgonjwa/);
 });
 
-test("Spanish (3) and Russian (4) give prompts in that language", () => {
+test("Spanish (3) and Ukrainian (4) give prompts in that language", () => {
   const es = press(startCall().state, "3");
   assert.equal(es.state.lang, "es");
   assert.match(es.say[0], /número del paciente/);
-  const ru = press(startCall().state, "4");
-  assert.equal(ru.state.lang, "ru");
-  assert.match(ru.say[0], /номер пациента/);
+  const uk = press(startCall().state, "4");
+  assert.equal(uk.state.lang, "uk");
+  assert.match(uk.say[0], /номер пацієнта/);
 });
 
 test("short entries are rejected and * clears", () => {

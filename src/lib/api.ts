@@ -55,7 +55,7 @@ async function call<T>(fn: string, body: Record<string, unknown>): Promise<ApiRe
   }
 }
 
-export type CallLang = "sw" | "en" | "es" | "ru";
+export type CallLang = "sw" | "en" | "es" | "uk";
 export type InstructionType = "doctor_diagnosis" | "doctor_prescription" | "symptom_log";
 
 export interface InboxMessage {

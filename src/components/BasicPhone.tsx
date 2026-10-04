@@ -25,8 +25,8 @@ interface Line {
 }
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
-const SPEECH_LANG = { sw: "sw-KE", en: "en-US", es: "es-ES", ru: "ru-RU" } as const;
-const LANG_LABEL = { sw: "Kiswahili", en: "English", es: "Español", ru: "Русский" } as const;
+const SPEECH_LANG = { sw: "sw-KE", en: "en-US", es: "es-ES", uk: "uk-UA" } as const;
+const LANG_LABEL = { sw: "Kiswahili", en: "English", es: "Español", uk: "Українська" } as const;
 
 export function BasicPhone() {
   const [state, setState] = useState<CallState>(initialState);

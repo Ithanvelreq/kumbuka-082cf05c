@@ -2,7 +2,7 @@
 // The component executes the returned `effect` and feeds the outcome back via the `after*` functions.
 // The language choice only selects which translation models the backend uses; storage is always English.
 
-export type Lang = "sw" | "en" | "es" | "ru";
+export type Lang = "sw" | "en" | "es" | "uk";
 export type Role = "patient" | "doctor";
 export type RecordKind = "symptom" | "doctor_diagnosis" | "doctor_prescription" | "symptom_log";
 
@@ -43,88 +43,88 @@ export interface Transition {
   effect?: Effect;
 }
 
-// TODO before a real pilot: have native speakers review the Swahili, Spanish and Russian prompts.
+// TODO before a real pilot: have native speakers review the Swahili, Spanish and Ukrainian prompts.
 const PROMPTS = {
   number: {
     sw: "Weka namba ya mgonjwa, kisha bonyeza #.",
     en: "Enter the patient number, then press #.",
     es: "Marque el número del paciente y luego pulse #.",
-    ru: "Введите номер пациента, затем нажмите #.",
+    uk: "Введіть номер пацієнта, потім натисніть #.",
   },
   pin: {
     sw: "Weka PIN, kisha bonyeza #.",
     en: "Enter the PIN, then press #.",
     es: "Marque el PIN y luego pulse #.",
-    ru: "Введите PIN-код, затем нажмите #.",
+    uk: "Введіть PIN-код, потім натисніть #.",
   },
   not_found: {
     sw: "Namba hii haijasajiliwa. Bonyeza 1 kujisajili kwa PIN hii. Bonyeza 2 kujaribu tena.",
     en: "This number is not registered. Press 1 to register with this PIN. Press 2 to try again.",
     es: "Este número no está registrado. Pulse 1 para registrarse con este PIN. Pulse 2 para intentarlo de nuevo.",
-    ru: "Этот номер не зарегистрирован. Нажмите 1, чтобы зарегистрироваться с этим PIN-кодом. Нажмите 2, чтобы попробовать снова.",
+    uk: "Цей номер не зареєстровано. Натисніть 1, щоб зареєструватися з цим PIN-кодом. Натисніть 2, щоб спробувати ще раз.",
   },
   role: {
     sw: "Kama wewe ni mgonjwa, bonyeza 1. Kama wewe ni daktari, bonyeza 2.",
     en: "If you are the patient, press 1. If you are the doctor, press 2.",
     es: "Si es el paciente, pulse 1. Si es el médico, pulse 2.",
-    ru: "Если вы пациент, нажмите 1. Если вы врач, нажмите 2.",
+    uk: "Якщо ви пацієнт, натисніть 1. Якщо ви лікар, натисніть 2.",
   },
   patient_menu: {
     sw: "Bonyeza 1 kurekodi dalili. Bonyeza 2 kusikiliza ujumbe wa daktari.",
     en: "Press 1 to record a symptom. Press 2 to hear messages from your doctor.",
     es: "Pulse 1 para grabar un síntoma. Pulse 2 para escuchar los mensajes de su médico.",
-    ru: "Нажмите 1, чтобы записать симптом. Нажмите 2, чтобы прослушать сообщения от врача.",
+    uk: "Натисніть 1, щоб записати симптом. Натисніть 2, щоб прослухати повідомлення від лікаря.",
   },
   doctor_menu: {
     sw: "Bonyeza 1 kusikiliza historia ya mgonjwa. Bonyeza 2 kurekodi utambuzi. Bonyeza 3 kurekodi dawa. Bonyeza 4 kurekodi maelezo ya mazungumzo.",
     en: "Press 1 to hear the patient's history. Press 2 to record a diagnosis. Press 3 to record a prescription. Press 4 to record a consultation note.",
     es: "Pulse 1 para escuchar el historial del paciente. Pulse 2 para grabar un diagnóstico. Pulse 3 para grabar una receta. Pulse 4 para grabar una nota de la consulta.",
-    ru: "Нажмите 1, чтобы прослушать историю пациента. Нажмите 2, чтобы записать диагноз. Нажмите 3, чтобы записать назначение. Нажмите 4, чтобы записать заметку о приёме.",
+    uk: "Натисніть 1, щоб прослухати історію пацієнта. Натисніть 2, щоб записати діагноз. Натисніть 3, щоб записати призначення. Натисніть 4, щоб записати нотатку про прийом.",
   },
   record: {
     sw: "Ongea baada ya mlio. Bonyeza * kurudi.",
     en: "Speak after the beep. Press * to go back.",
     es: "Hable después del tono. Pulse * para volver.",
-    ru: "Говорите после сигнала. Нажмите *, чтобы вернуться.",
+    uk: "Говоріть після сигналу. Натисніть *, щоб повернутися.",
   },
-  invalid: { sw: "Chaguo si sahihi.", en: "Invalid choice.", es: "Opción no válida.", ru: "Неверный выбор." },
-  too_short: { sw: "Namba fupi mno.", en: "Too short.", es: "Demasiado corto.", ru: "Слишком коротко." },
-  registered: { sw: "Umesajiliwa.", en: "You are registered.", es: "Se ha registrado.", ru: "Вы зарегистрированы." },
-  saved: { sw: "Imehifadhiwa.", en: "Saved.", es: "Guardado.", ru: "Сохранено." },
+  invalid: { sw: "Chaguo si sahihi.", en: "Invalid choice.", es: "Opción no válida.", uk: "Неправильний вибір." },
+  too_short: { sw: "Namba fupi mno.", en: "Too short.", es: "Demasiado corto.", uk: "Занадто коротко." },
+  registered: { sw: "Umesajiliwa.", en: "You are registered.", es: "Se ha registrado.", uk: "Вас зареєстровано." },
+  saved: { sw: "Imehifadhiwa.", en: "Saved.", es: "Guardado.", uk: "Збережено." },
   saved_unclear: {
     sw: "Imehifadhiwa, lakini haikueleweka vizuri. Mtu ataikagua.",
     en: "Saved, but it was not clear. A person will check it.",
     es: "Guardado, pero no se entendió bien. Una persona lo revisará.",
-    ru: "Сохранено, но запись неразборчива. Её проверит человек.",
+    uk: "Збережено, але запис нерозбірливий. Його перевірить людина.",
   },
-  no_messages: { sw: "Hakuna ujumbe.", en: "No messages.", es: "No hay mensajes.", ru: "Сообщений нет." },
+  no_messages: { sw: "Hakuna ujumbe.", en: "No messages.", es: "No hay mensajes.", uk: "Повідомлень немає." },
   message_unclear: {
     sw: "Una ujumbe kutoka kwa daktari ambao haukueleweka. Uliza mtu.",
     en: "You have a message from your doctor that was unclear. Ask a person.",
     es: "Tiene un mensaje de su médico que no se entendió. Pregunte a una persona.",
-    ru: "У вас есть сообщение от врача, которое не удалось разобрать. Спросите у человека.",
+    uk: "У вас є повідомлення від лікаря, яке не вдалося розібрати. Запитайте в людини.",
   },
-  no_entries: { sw: "Hakuna kumbukumbu bado.", en: "No entries yet.", es: "Todavía no hay registros.", ru: "Записей пока нет." },
+  no_entries: { sw: "Hakuna kumbukumbu bado.", en: "No entries yet.", es: "Todavía no hay registros.", uk: "Записів поки немає." },
   unconfirmed: {
     sw: "Kumbukumbu {n} hazijathibitishwa. Haieleweki, uliza mtu.",
     en: "{n} entries are unconfirmed. Unclear, ask a person.",
     es: "{n} registros no están confirmados. No está claro, pregunte a una persona.",
-    ru: "Неподтверждённых записей: {n}. Неясно, спросите у человека.",
+    uk: "Непідтверджених записів: {n}. Незрозуміло, запитайте в людини.",
   },
   summary_in_english: {
     sw: "Muhtasari haukuweza kutafsiriwa kwa uhakika. Huu hapa kwa Kiingereza:",
     en: "Summary:",
     es: "No se pudo traducir el resumen con seguridad. Aquí está en inglés:",
-    ru: "Не удалось надёжно перевести сводку. Вот она на английском:",
+    uk: "Не вдалося надійно перекласти підсумок. Ось він англійською:",
   },
   busy: {
     sw: "Huduma ina shughuli nyingi, jaribu tena.",
     en: "Service busy, try again.",
     es: "El servicio está ocupado, inténtelo de nuevo.",
-    ru: "Сервис занят, попробуйте ещё раз.",
+    uk: "Сервіс зайнятий, спробуйте ще раз.",
   },
-  prescription: { sw: "Dawa:", en: "Prescription:", es: "Receta:", ru: "Назначение:" },
-  diagnosis: { sw: "Utambuzi:", en: "Diagnosis:", es: "Diagnóstico:", ru: "Диагноз:" },
+  prescription: { sw: "Dawa:", en: "Prescription:", es: "Receta:", uk: "Призначення:" },
+  diagnosis: { sw: "Utambuzi:", en: "Diagnosis:", es: "Diagnóstico:", uk: "Діагноз:" },
 } as const;
 
 export type PromptKey = keyof typeof PROMPTS;
@@ -134,7 +134,7 @@ export const LANG_CHOICES: readonly { key: string; lang: Lang; text: string }[] 
   { key: "1", lang: "sw", text: "Kwa Kiswahili, bonyeza 1." },
   { key: "2", lang: "en", text: "For English, press 2." },
   { key: "3", lang: "es", text: "Para español, pulse 3." },
-  { key: "4", lang: "ru", text: "Для русского языка нажмите 4." },
+  { key: "4", lang: "uk", text: "Українською — натисніть 4." },
 ];
 export const LANG_PROMPT: string[] = LANG_CHOICES.map((c) => c.text);
 
