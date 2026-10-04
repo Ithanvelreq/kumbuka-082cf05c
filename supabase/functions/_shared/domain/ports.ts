@@ -42,8 +42,8 @@ export interface Translation {
 export interface Summarizer {
   /** English transcript -> loose JSON with note_en/confidence/details. May throw or return junk. */
   structureSymptom(transcriptEn: string): Promise<RawStructured>;
-  /** History -> short summary written in the call language. */
-  summarizeHistory(events: Event[], callLang: CallLang): Promise<string>;
+  /** History -> short summary in English (the pivot language). Translation happens separately, at the edge. */
+  summarizeHistory(events: Event[]): Promise<string>;
   /** Stored English text -> call language, for playback. Faithful, nothing added. */
   fromEnglish(textEn: string, callLang: CallLang): Promise<Translation>;
 }

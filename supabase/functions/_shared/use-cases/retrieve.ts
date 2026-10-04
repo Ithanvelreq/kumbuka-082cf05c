@@ -1,5 +1,8 @@
-// Flow 2: patient id -> all (English) events -> one short summary in the call language, read to the doctor.
+// Flow 2: patient id -> all (English) events -> short English summary -> translated into the call language at the
+// edge (same check as message playback), read to the doctor. If the translation can't be trusted, the doctor
+// hears the English summary instead of a possibly wrong one.
 import { NotFoundError, ServiceBusyError } from "../domain/errors.ts";
+import { numbersPreserved } from "../domain/needs-review.ts";
 import type { PatientStore, Storage, Summarizer } from "../domain/ports.ts";
 import { type CallLang, type Event, UNCLEAR_LABEL } from "../domain/types.ts";
 
@@ -16,7 +19,7 @@ export interface RetrieveInput {
 export interface RetrieveDeps {
   storage: Storage;
   patients: PatientStore;
-  summarizer: Pick<Summarizer, "summarizeHistory">;
+  summarizer: Pick<Summarizer, "summarizeHistory" | "fromEnglish">;
 }
 
 export interface EntryView {
@@ -33,6 +36,8 @@ export interface EntryView {
 
 export interface RetrieveResult {
   summary: string;
+  /** Language `summary` is in. Differs from the call language when translation wasn't trustworthy. */
+  summary_lang: CallLang;
   /** True when there are no entries; the client says "No entries yet" in the call language. */
   empty: boolean;
   /** True when the LLM failed and we fell back to a plain English list. */
@@ -45,15 +50,32 @@ export async function retrieve(input: RetrieveInput, deps: RetrieveDeps): Promis
 
   const events = await deps.storage.retrieve(input.patientId, input.pin);
   const entries = events.map(toView);
-  if (events.length === 0) return { summary: EMPTY_HISTORY, empty: true, fallback: false, entries };
+  if (events.length === 0) return { summary: EMPTY_HISTORY, summary_lang: "en", empty: true, fallback: false, entries };
 
+  let summaryEn: string;
   try {
-    const summary = (await deps.summarizer.summarizeHistory(events, input.targetLang)).trim();
-    if (summary === "") throw new Error("empty summary");
-    return { summary: clampSms(summary), empty: false, fallback: false, entries };
+    summaryEn = clampSms((await deps.summarizer.summarizeHistory(events)).trim());
+    if (summaryEn === "") throw new Error("empty summary");
   } catch (err) {
     if (err instanceof ServiceBusyError) throw err;
-    return { summary: clampSms(fallbackSummary(entries)), empty: false, fallback: true, entries };
+    return { summary: clampSms(fallbackSummary(entries)), summary_lang: "en", empty: false, fallback: true, entries };
+  }
+
+  if (input.targetLang === "en") return { summary: summaryEn, summary_lang: "en", empty: false, fallback: false, entries };
+  const translated = await translateOrNull(summaryEn, input.targetLang, deps);
+  return translated === null
+    ? { summary: summaryEn, summary_lang: "en", empty: false, fallback: false, entries }
+    : { summary: clampSms(translated), summary_lang: input.targetLang, empty: false, fallback: false, entries };
+}
+
+/** Translation the doctor can rely on, or null. Any failure (including busy) falls back to the English summary we have. */
+async function translateOrNull(textEn: string, lang: CallLang, deps: RetrieveDeps): Promise<string | null> {
+  try {
+    const tr = await deps.summarizer.fromEnglish(textEn, lang);
+    const text = tr.text.trim();
+    return tr.confidence !== "low" && text !== "" && numbersPreserved(textEn, text) ? text : null;
+  } catch {
+    return null;
   }
 }
 

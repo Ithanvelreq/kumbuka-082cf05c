@@ -48,11 +48,14 @@ export function decideNeedsReview(input: ReviewInput): ReviewDecision {
 }
 
 /**
- * Doses and dates must survive translation unchanged. Every number in the source must appear in the
- * translation; otherwise flag for review. Pure, conservative string check.
+ * Doses and dates must survive translation unchanged: the translation must contain exactly the same numbers,
+ * the same number of times (a changed "3 days" -> "8 days" must fail even if a 3 appears elsewhere, e.g. in a
+ * date). Values, not spellings: "03" == "3", "1,5" == "1.5". Pure, conservative: false alarms only cost a fallback.
  */
 export function numbersPreserved(source: string, translated: string): boolean {
-  const nums = (s: string) => (s.match(/\d+(?:[.,]\d+)?/g) ?? []).map((n) => n.replace(",", "."));
-  const out = new Set(nums(translated));
-  return nums(source).every((n) => out.has(n));
+  const nums = (s: string) =>
+    (s.match(/\d+(?:[.,]\d+)?/g) ?? []).map((n) => String(Number(n.replace(",", ".")))).sort();
+  const a = nums(source);
+  const b = nums(translated);
+  return a.length === b.length && a.every((n, i) => n === b[i]);
 }

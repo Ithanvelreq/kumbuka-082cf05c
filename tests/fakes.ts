@@ -51,8 +51,8 @@ export class FakeSummarizer implements Summarizer {
     if (r instanceof Error) throw r;
     return r;
   }
-  async summarizeHistory(events: Event[], lang: CallLang) {
-    this.calls.push({ method: "summarizeHistory", args: [events, lang] });
+  async summarizeHistory(events: Event[]) {
+    this.calls.push({ method: "summarizeHistory", args: [events] });
     return this.responses.summary ?? "summary";
   }
   async fromEnglish(text: string, lang: CallLang) {

@@ -82,6 +82,10 @@ const PROMPTS = {
     sw: "Kumbukumbu {n} hazijathibitishwa. Haieleweki, uliza mtu.",
     en: "{n} entries are unconfirmed. Unclear, ask a person.",
   },
+  summary_in_english: {
+    sw: "Muhtasari haukuweza kutafsiriwa kwa uhakika. Huu hapa kwa Kiingereza:",
+    en: "Summary:",
+  },
   busy: { sw: "Huduma ina shughuli nyingi, jaribu tena.", en: "Service busy, try again." },
   prescription: { sw: "Dawa:", en: "Prescription:" },
   diagnosis: { sw: "Utambuzi:", en: "Diagnosis:" },
