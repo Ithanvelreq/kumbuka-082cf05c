@@ -1,6 +1,6 @@
 // Storage + PatientStore port implementations. The ONLY module that reads/writes the tables.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import type { PatientStore, Storage } from "../domain/ports.ts";
+import type { EntryMeta, PatientStore, Storage } from "../domain/ports.ts";
 import type { Event, NewEvent, Patient } from "../domain/types.ts";
 
 /**
@@ -51,5 +51,19 @@ export class SupabasePatientStore implements PatientStore {
     const { data, error } = await this.db.from("patients").select("*").eq("id", id).maybeSingle();
     if (error) throw new Error(`patients select failed: ${error.message}`);
     return (data as Patient | null) ?? null;
+  }
+
+  async listWithEntryMeta(): Promise<{ patient: Patient; entries: EntryMeta[] }[]> {
+    // Only metadata: never note text or transcripts. reported_by is read out of the JSON content.
+    const { data, error } = await this.db
+      .from("patients")
+      .select("id, display_name, created_at, events(type, source_lang, created_at, reported_by:content->>reported_by)")
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(`patients list failed: ${error.message}`);
+    type Row = { id: string; display_name: string | null; created_at: string; events: EntryMeta[] | null };
+    return ((data ?? []) as unknown as Row[]).map((r) => ({
+      patient: { id: r.id, display_name: r.display_name, pin_check: null, created_at: r.created_at },
+      entries: r.events ?? [],
+    }));
   }
 }

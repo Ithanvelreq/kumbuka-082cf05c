@@ -14,6 +14,14 @@ export class ValidationError extends Error {
   }
 }
 
+/** The caller isn't allowed to do this (e.g. a demo-only feature that is switched off). Mapped to HTTP 403. */
+export class ForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
 export class NotFoundError extends Error {
   constructor(message: string) {
     super(message);

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BasicPhone } from "@/components/BasicPhone";
+import { HowToTest } from "@/components/HowToTest";
+import { PatientList } from "@/components/PatientList";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -17,25 +19,28 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <main className="flex min-h-screen flex-col items-center gap-6 bg-slate-100 p-6">
-      <header className="max-w-xl text-center">
+    <main className="min-h-screen bg-slate-100 p-6">
+      <header className="mx-auto max-w-md">
         <h1>
           <img
             src="/kumbuka-logo.png"
             alt="Kumbuka – Health history. Speak it once. Keep it always."
             width={1400}
             height={355}
-            className="mx-auto h-auto w-full max-w-md"
+            className="h-auto w-full"
           />
         </h1>
-        <p className="mt-3 text-xs text-slate-600">
-          Simulates a call from any basic phone: keypad menu, voice in, voice out. Patient and doctor use the same call
-          (press 1 or 2). Every AI output is a draft; it never diagnoses or advises. Records are stored in English.
-          Demo uses cloud inference (Groq) and stores data unencrypted; the intended design runs locally on a mini-PC
-          with PIN-derived encryption. Demo patient: number <b>1001</b>, any 4-digit PIN.
-        </p>
       </header>
-      <BasicPhone />
+      <div className="mx-auto mt-8 flex max-w-6xl flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-center">
+        {/* The phone stays in view while the instructions scroll beside it. */}
+        <div className="lg:sticky lg:top-6">
+          <BasicPhone />
+        </div>
+        <div className="flex w-full max-w-xl flex-col gap-8">
+          <HowToTest />
+          <PatientList />
+        </div>
+      </div>
     </main>
   );
 }

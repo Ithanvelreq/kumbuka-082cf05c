@@ -1,5 +1,5 @@
 // Ports: interfaces the use cases depend on. Implementations live in ../infra.
-import type { CallLang, Confidence, Event, NewEvent, Patient, Transcript } from "./types.ts";
+import type { CallLang, Confidence, Event, EventType, NewEvent, Patient, Transcript } from "./types.ts";
 
 /**
  * Event storage. `pin` is ONLY key material for encrypting content at rest (EncryptedStorage, later).
@@ -10,9 +10,19 @@ export interface Storage {
   retrieve(patientId: string, pin: string): Promise<Event[]>;
 }
 
+/** Minimal per-entry metadata for overviews: no note text, no transcripts. */
+export interface EntryMeta {
+  type: EventType;
+  source_lang: string | null;
+  created_at: string;
+  reported_by: string | null;
+}
+
 export interface PatientStore {
   create(patient: Patient): Promise<Patient>;
   find(id: string): Promise<Patient | null>;
+  /** Every patient with metadata of their entries. Demo overview only (see use-cases/list-patients.ts). */
+  listWithEntryMeta(): Promise<{ patient: Patient; entries: EntryMeta[] }[]>;
 }
 
 /** Login check without storing the PIN: pin_check = id encrypted with a PIN-derived key. */
