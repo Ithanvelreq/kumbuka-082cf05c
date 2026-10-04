@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AudioPayload } from "./api";
 
 export async function blobToPayload(blob: Blob): Promise<AudioPayload> {
@@ -19,6 +19,9 @@ export function useRecorder() {
   const [recording, setRecording] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+
+  // Release the mic if we unmount mid-recording (e.g. hang-up), so the browser's mic indicator goes off.
+  useEffect(() => () => recorder.current?.stream.getTracks().forEach((t) => t.stop()), []);
 
   async function start() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
