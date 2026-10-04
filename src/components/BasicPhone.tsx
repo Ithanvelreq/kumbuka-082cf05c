@@ -16,6 +16,7 @@ import {
   t,
   type Transition,
 } from "@/lib/call-flow";
+import { pickVoice } from "@/lib/speech";
 import { AudioPicker, type PickedAudio } from "./AudioPicker";
 
 interface Line {
@@ -38,6 +39,12 @@ export function BasicPhone() {
   const lineId = useRef(0);
   const pendingAudio = useRef<AudioPayload | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
+  const warnedNoVoice = useRef(new Set<string>());
+
+  // Chrome loads the voice list lazily; asking once early means it is ready by the first prompt.
+  useEffect(() => {
+    if ("speechSynthesis" in window) window.speechSynthesis.getVoices();
+  }, []);
 
   useEffect(() => {
     screenRef.current?.scrollTo({ top: screenRef.current.scrollHeight });
@@ -47,11 +54,19 @@ export function BasicPhone() {
     if (texts.length === 0) return;
     setLines((prev) => [...prev, ...texts.map((text) => ({ id: ++lineId.current, kind, text }))]);
     if (kind === "voice" && speakerRef.current && "speechSynthesis" in window) {
+      const voices = window.speechSynthesis.getVoices();
       for (const text of texts) {
-        const u = new SpeechSynthesisUtterance(text);
         // The opening menu lines are each in their own language, whatever the call language is.
-        u.lang = SPEECH_LANG[LANG_CHOICES.find((c) => c.text === text)?.lang ?? lang];
+        const textLang = LANG_CHOICES.find((c) => c.text === text)?.lang ?? lang;
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = SPEECH_LANG[textLang];
+        u.voice = pickVoice(voices, u.lang);
         window.speechSynthesis.speak(u);
+        if (!u.voice && voices.length > 0 && !warnedNoVoice.current.has(textLang)) {
+          warnedNoVoice.current.add(textLang);
+          const note = `No ${LANG_LABEL[textLang]} voice on this computer; using the default voice.`;
+          setLines((prev) => [...prev, { id: ++lineId.current, kind: "note", text: note }]);
+        }
       }
     }
   }
