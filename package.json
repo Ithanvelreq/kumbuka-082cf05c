@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.functions.json",
     "test:watch": "vitest"
   },
   "overrides": {
