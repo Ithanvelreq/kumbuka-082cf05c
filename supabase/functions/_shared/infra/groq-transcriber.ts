@@ -22,7 +22,8 @@ export class GroqTranscriber implements Transcriber {
     const path = whisperMode === "transcribe" ? "/audio/transcriptions" : "/audio/translations";
     const res = (await groqFetch(path, () => {
       const form = new FormData();
-      form.append("file", new Blob([audio.bytes], { type: mime }), `clip.${EXT[mime] ?? "webm"}`);
+      const clip: Uint8Array<ArrayBuffer> = new Uint8Array(audio.bytes);
+      form.append("file", new Blob([clip], { type: mime }), `clip.${EXT[mime] ?? "webm"}`);
       form.append("model", whisperModel);
       form.append("response_format", "verbose_json");
       form.append("temperature", "0");
