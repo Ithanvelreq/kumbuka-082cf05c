@@ -79,6 +79,7 @@ All functions are `POST` with a JSON body. Audio is `{ "base64": "...", "mime_ty
 | `retrieve` | `{ patient_id, pin, call_lang }` | `{ summary, summary_lang, empty, fallback, entries[] }` (`summary_lang` is `"en"` when the translation wasn't trusted) |
 | `log-instruction` | `{ patient_id, pin, call_lang, type, audio }` | `{ event }` |
 | `ask` | `{ patient_id, pin, call_lang, audio }` (spoken question) | `{ status, question_en, answer, answer_lang, uses_unconfirmed }`; `status` is `answered`, `not_recorded`, `out_of_scope`, `unclear_question`, `no_reliable_answer` or `empty` |
+| `list-patients` | `{}` | `{ patients: [{ id, display_name, registered_at, entries, first_entry_at, last_entry_at, languages }] }`. **Demo only:** 403 unless the secret `DEMO_SHOW_PATIENTS=true` is set. `languages` = call languages the patient used for their own recordings, most recent first |
 | `inbox` | `{ patient_id, pin, call_lang }` | `{ messages[] }` (text in `call_lang`, or `null` = unclear) |
 
 Errors: `400 invalid_input`, `404 not_found`, `405 method_not_allowed`, `503 service_busy`, `500 internal`.
@@ -93,7 +94,7 @@ One-time backend setup, done through Lovable's chat:
 
 1. **Database:** "Apply the SQL migrations in `supabase/migrations` in filename order: patients, events, seed." Lovable shows each one for approval.
    Both tables intentionally have RLS **on with no policies**: only the edge functions (service role) can touch them. If Lovable's security check suggests adding policies, decline.
-2. **Secret:** add `GROQ_API_KEY` (free key at console.groq.com) when Lovable prompts for it, or in the Cloud secrets settings. Optional overrides: `GROQ_WHISPER_MODEL`, `GROQ_LLM_MODEL`, `GROQ_WHISPER_MODEL_SW`, `GROQ_LLM_MODEL_SW` (and the same with `_ES` / `_UK`). `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
+2. **Secret:** add `GROQ_API_KEY` (free key at console.groq.com) when Lovable prompts for it, or in the Cloud secrets settings. Optional overrides: `GROQ_WHISPER_MODEL`, `GROQ_LLM_MODEL`, `GROQ_WHISPER_MODEL_SW`, `GROQ_LLM_MODEL_SW` (and the same with `_ES` / `_UK`). Demo switch: `DEMO_SHOW_PATIENTS=true` turns on the patient list on the page (off by default: with no encryption and no PIN check, the list would expose every record). `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 3. **Edge functions:** "Deploy the edge functions in `supabase/functions`: auth, ingest, retrieve, log-instruction, inbox, ask." `supabase/config.toml` sets `verify_jwt = false` for them, because the app calls them with the publishable key, which isn't a JWT.
 4. **After every merge that touches `supabase/functions/`**, ask Lovable's chat to "Redeploy all edge functions". Merging alone doesn't redeploy them; the app keeps running the old backend code until you ask.
 5. **Demo clips:** put pre-recorded Swahili clips in `public/clips/` and list them in `src/lib/clips.ts`. `silence.wav` (near-silent, generated) is included to show the `needs_review` fail-safe.

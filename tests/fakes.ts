@@ -1,5 +1,5 @@
 // In-memory port fakes for use-case tests.
-import type { HistoryAnswer, PatientStore, Storage, Summarizer, Transcriber, Translation } from "../supabase/functions/_shared/domain/ports.ts";
+import type { EntryMeta, HistoryAnswer, PatientStore, Storage, Summarizer, Transcriber, Translation } from "../supabase/functions/_shared/domain/ports.ts";
 import type { CallLang, Event, NewEvent, Patient, Transcript } from "../supabase/functions/_shared/domain/types.ts";
 
 export class MemoryStorage implements Storage {
@@ -23,6 +23,10 @@ export class MemoryPatients implements PatientStore {
   }
   async find(id: string) {
     return this.rows.get(id) ?? null;
+  }
+  entryMeta = new Map<string, EntryMeta[]>();
+  async listWithEntryMeta() {
+    return [...this.rows.values()].map((patient) => ({ patient, entries: this.entryMeta.get(patient.id) ?? [] }));
   }
 }
 

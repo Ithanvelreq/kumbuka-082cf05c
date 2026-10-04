@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BasicPhone } from "@/components/BasicPhone";
 import { HowToTest } from "@/components/HowToTest";
+import { PatientList } from "@/components/PatientList";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,7 +36,10 @@ function Index() {
         <div className="lg:sticky lg:top-6">
           <BasicPhone />
         </div>
-        <HowToTest />
+        <div className="flex w-full max-w-xl flex-col gap-8">
+          <HowToTest />
+          <PatientList />
+        </div>
       </div>
     </main>
   );

@@ -85,6 +85,17 @@ export interface AskResult {
   uses_unconfirmed: boolean;
 }
 
+export interface PatientOverview {
+  id: string;
+  display_name: string | null;
+  registered_at: string | null;
+  entries: number;
+  first_entry_at: string | null;
+  last_entry_at: string | null;
+  /** Languages the patient used for their own recordings, most recent first. */
+  languages: CallLang[];
+}
+
 // Every call sends `call_lang`: it only picks the translation models. Storage is always English.
 export const api = {
   signup: (id: string, pin: string) => call<{ patient: Patient }>("auth", { action: "signup", id, pin }),
@@ -97,6 +108,8 @@ export const api = {
     call<{ event: StoredEvent }>("log-instruction", { patient_id, pin, call_lang, type, audio }),
   ask: (patient_id: string, pin: string, call_lang: CallLang, audio: AudioPayload) =>
     call<AskResult>("ask", { patient_id, pin, call_lang, audio }),
+  /** Demo-only; 403 unless DEMO_SHOW_PATIENTS=true is set for the edge functions. */
+  listPatients: () => call<{ patients: PatientOverview[] }>("list-patients", {}),
   inbox: (patient_id: string, pin: string, call_lang: CallLang) =>
     call<{ messages: InboxMessage[] }>("inbox", { patient_id, pin, call_lang }),
 };

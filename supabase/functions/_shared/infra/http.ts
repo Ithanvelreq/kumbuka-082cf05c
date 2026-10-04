@@ -1,5 +1,5 @@
 // Shared Deno HTTP plumbing for edge handlers: CORS, JSON, error mapping, input parsing.
-import { NotFoundError, ServiceBusyError, ValidationError } from "../domain/errors.ts";
+import { ForbiddenError, NotFoundError, ServiceBusyError, ValidationError } from "../domain/errors.ts";
 import type { AudioInput } from "../domain/ports.ts";
 import { CALL_LANGS, type CallLang, isCallLang } from "../domain/types.ts";
 
@@ -28,6 +28,7 @@ export function handler(fn: (body: Record<string, unknown>) => Promise<unknown>)
     } catch (err) {
       if (err instanceof ServiceBusyError) return json({ error: "service_busy", message: err.message }, 503);
       if (err instanceof ValidationError) return json({ error: "invalid_input", message: err.message }, 400);
+      if (err instanceof ForbiddenError) return json({ error: "forbidden", message: err.message }, 403);
       if (err instanceof NotFoundError) return json({ error: "not_found", message: err.message }, 404);
       console.error(err);
       return json({ error: "internal", message: "Something went wrong" }, 500);
