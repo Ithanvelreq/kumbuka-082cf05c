@@ -85,6 +85,21 @@ test("doctor records a prescription: record step, audio -> send effect, * goes b
   assert.equal(press(rec.state, "*").state.step, "doctor_menu");
 });
 
+test("doctor asks a question: 5 -> question prompt, audio -> send effect", () => {
+  const s = afterLogin(keys(press(startCall().state, "2").state, "1001#1234#").state, "ok").state;
+  const rec = press(press(s, "2").state, "5");
+  assert.equal(rec.state.recordKind, "question");
+  assert.match(rec.say[0]!, /Ask your question/);
+  assert.deepEqual(audioCaptured(rec.state).effect, { type: "send_audio", kind: "question" });
+});
+
+test("patients can't reach the question option", () => {
+  const s = afterLogin(keys(press(startCall().state, "2").state, "1001#1234#").state, "ok").state;
+  const tr = press(press(s, "1").state, "5");
+  assert.equal(tr.state.step, "patient_menu");
+  assert.match(tr.say[0]!, /Invalid/);
+});
+
 test("invalid menu keys repeat the menu", () => {
   const s = press(afterLogin(keys(press(startCall().state, "2").state, "1001#1234#").state, "ok").state, "1").state;
   const tr = press(s, "9");

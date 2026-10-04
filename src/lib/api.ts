@@ -75,6 +75,16 @@ export interface RetrieveResult {
   entries: EntryView[];
 }
 
+export type AskStatus = "answered" | "not_recorded" | "out_of_scope" | "unclear_question" | "no_reliable_answer" | "empty";
+
+export interface AskResult {
+  status: AskStatus;
+  question_en: string;
+  answer: string | null;
+  answer_lang: CallLang | null;
+  uses_unconfirmed: boolean;
+}
+
 // Every call sends `call_lang`: it only picks the translation models. Storage is always English.
 export const api = {
   signup: (id: string, pin: string) => call<{ patient: Patient }>("auth", { action: "signup", id, pin }),
@@ -85,6 +95,8 @@ export const api = {
     call<RetrieveResult>("retrieve", { patient_id, pin, call_lang }),
   logInstruction: (patient_id: string, pin: string, call_lang: CallLang, type: InstructionType, audio: AudioPayload) =>
     call<{ event: StoredEvent }>("log-instruction", { patient_id, pin, call_lang, type, audio }),
+  ask: (patient_id: string, pin: string, call_lang: CallLang, audio: AudioPayload) =>
+    call<AskResult>("ask", { patient_id, pin, call_lang, audio }),
   inbox: (patient_id: string, pin: string, call_lang: CallLang) =>
     call<{ messages: InboxMessage[] }>("inbox", { patient_id, pin, call_lang }),
 };

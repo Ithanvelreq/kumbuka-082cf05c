@@ -118,6 +118,24 @@ export function BasicPhone() {
       case "send_audio": {
         const audio = pendingAudio.current!;
         pendingAudio.current = null; // drop our reference to the clip as soon as it is sent
+        if (effect.kind === "question") {
+          const res = await api.ask(s.number, s.pin, s.lang, audio);
+          if (!live()) return;
+          if (!res.ok) return apply(backToMenu(s, [failure(res, s)]));
+          const r = res.data;
+          // Screen only: what we heard, so the doctor can tell a misheard question from a missing record.
+          if (r.question_en) addLines("note", [`heard: “${r.question_en}”`]);
+          if (r.status === "empty") return apply(backToMenu(s, [t(s.lang, "no_entries")]));
+          if (r.status !== "answered") return apply(backToMenu(s, [t(s.lang, `ask_${r.status}`)]));
+          if (r.answer === null) return apply(backToMenu(s, [t(s.lang, "ask_no_reliable_answer")]));
+          return apply(
+            backToMenu(s, [
+              ...(r.answer_lang !== s.lang ? [t(s.lang, "answer_in_english")] : []),
+              r.answer,
+              ...(r.uses_unconfirmed ? [t(s.lang, "answer_unconfirmed")] : []),
+            ]),
+          );
+        }
         const res = effect.kind === "symptom"
           ? await api.ingest(s.number, s.pin, s.lang, audio)
           : await api.logInstruction(s.number, s.pin, s.lang, effect.kind, audio);

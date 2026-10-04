@@ -4,7 +4,7 @@
 
 export type Lang = "sw" | "en" | "es" | "uk";
 export type Role = "patient" | "doctor";
-export type RecordKind = "symptom" | "doctor_diagnosis" | "doctor_prescription" | "symptom_log";
+export type RecordKind = "symptom" | "doctor_diagnosis" | "doctor_prescription" | "symptom_log" | "question";
 
 export type Step =
   | "idle"
@@ -76,16 +76,58 @@ const PROMPTS = {
     uk: "Натисніть 1, щоб записати симптом. Натисніть 2, щоб прослухати повідомлення від лікаря.",
   },
   doctor_menu: {
-    sw: "Bonyeza 1 kusikiliza historia ya mgonjwa. Bonyeza 2 kurekodi utambuzi. Bonyeza 3 kurekodi dawa. Bonyeza 4 kurekodi maelezo ya mazungumzo.",
-    en: "Press 1 to hear the patient's history. Press 2 to record a diagnosis. Press 3 to record a prescription. Press 4 to record a consultation note.",
-    es: "Pulse 1 para escuchar el historial del paciente. Pulse 2 para grabar un diagnóstico. Pulse 3 para grabar una receta. Pulse 4 para grabar una nota de la consulta.",
-    uk: "Натисніть 1, щоб прослухати історію пацієнта. Натисніть 2, щоб записати діагноз. Натисніть 3, щоб записати призначення. Натисніть 4, щоб записати нотатку про прийом.",
+    sw: "Bonyeza 1 kusikiliza historia ya mgonjwa. Bonyeza 2 kurekodi utambuzi. Bonyeza 3 kurekodi dawa. Bonyeza 4 kurekodi maelezo ya mazungumzo. Bonyeza 5 kuuliza swali kuhusu historia.",
+    en: "Press 1 to hear the patient's history. Press 2 to record a diagnosis. Press 3 to record a prescription. Press 4 to record a consultation note. Press 5 to ask a question about the history.",
+    es: "Pulse 1 para escuchar el historial del paciente. Pulse 2 para grabar un diagnóstico. Pulse 3 para grabar una receta. Pulse 4 para grabar una nota de la consulta. Pulse 5 para hacer una pregunta sobre el historial.",
+    uk: "Натисніть 1, щоб прослухати історію пацієнта. Натисніть 2, щоб записати діагноз. Натисніть 3, щоб записати призначення. Натисніть 4, щоб записати нотатку про прийом. Натисніть 5, щоб поставити запитання про історію.",
   },
   record: {
     sw: "Ongea baada ya mlio. Bonyeza * kurudi.",
     en: "Speak after the beep. Press * to go back.",
     es: "Hable después del tono. Pulse * para volver.",
     uk: "Говоріть після сигналу. Натисніть *, щоб повернутися.",
+  },
+  ask_record: {
+    sw: "Uliza swali lako baada ya mlio. Bonyeza * kurudi.",
+    en: "Ask your question after the beep. Press * to go back.",
+    es: "Haga su pregunta después del tono. Pulse * para volver.",
+    uk: "Поставте запитання після сигналу. Натисніть *, щоб повернутися.",
+  },
+  ask_not_recorded: {
+    sw: "Hili halipo kwenye kumbukumbu.",
+    en: "This is not in the record.",
+    es: "Esto no consta en el historial.",
+    uk: "Цього немає в записах.",
+  },
+  ask_out_of_scope: {
+    sw: "Ninaweza kueleza tu kilichorekodiwa. Siwezi kutambua ugonjwa wala kushauri.",
+    en: "I can only report what was recorded. I can't diagnose or advise.",
+    es: "Solo puedo informar de lo que se registró. No puedo diagnosticar ni aconsejar.",
+    uk: "Я можу лише повідомити те, що записано. Я не можу ставити діагноз чи радити.",
+  },
+  ask_unclear_question: {
+    sw: "Samahani, swali halikueleweka. Tafadhali uliza tena.",
+    en: "Sorry, the question was not clear. Please ask again.",
+    es: "Lo siento, no se entendió la pregunta. Por favor, pregunte de nuevo.",
+    uk: "Вибачте, запитання було нерозбірливим. Будь ласка, запитайте ще раз.",
+  },
+  ask_no_reliable_answer: {
+    sw: "Sikupata jibu la uhakika. Mtu aangalie kumbukumbu.",
+    en: "I could not find a reliable answer. Ask a person to check the record.",
+    es: "No encontré una respuesta fiable. Pida a una persona que revise el historial.",
+    uk: "Не вдалося знайти надійну відповідь. Попросіть людину перевірити записи.",
+  },
+  answer_in_english: {
+    sw: "Jibu halikuweza kutafsiriwa kwa uhakika. Hili hapa kwa Kiingereza:",
+    en: "Answer:",
+    es: "No se pudo traducir la respuesta con seguridad. Aquí está en inglés:",
+    uk: "Не вдалося надійно перекласти відповідь. Ось вона англійською:",
+  },
+  answer_unconfirmed: {
+    sw: "Jibu hili linategemea kumbukumbu ambayo haijathibitishwa. Haieleweki, uliza mtu.",
+    en: "This answer relies on an unconfirmed entry. Unclear, ask a person.",
+    es: "Esta respuesta se basa en un registro no confirmado. No está claro, pregunte a una persona.",
+    uk: "Ця відповідь спирається на непідтверджений запис. Незрозуміло, запитайте в людини.",
   },
   invalid: { sw: "Chaguo si sahihi.", en: "Invalid choice.", es: "Opción no válida.", uk: "Неправильний вибір." },
   too_short: { sw: "Namba fupi mno.", en: "Too short.", es: "Demasiado corto.", uk: "Занадто коротко." },
@@ -217,6 +259,7 @@ export function press(s: CallState, key: string): Transition {
       if (key === "2") return record(s, "doctor_diagnosis");
       if (key === "3") return record(s, "doctor_prescription");
       if (key === "4") return record(s, "symptom_log");
+      if (key === "5") return record(s, "question");
       return invalid(t(s.lang, "doctor_menu"));
 
     case "record":
@@ -226,7 +269,7 @@ export function press(s: CallState, key: string): Transition {
 }
 
 function record(s: CallState, kind: RecordKind): Transition {
-  return { state: { ...s, step: "record", recordKind: kind }, say: [t(s.lang, "record")] };
+  return { state: { ...s, step: "record", recordKind: kind }, say: [t(s.lang, kind === "question" ? "ask_record" : "record")] };
 }
 
 /** Audio captured while in the record step. */
