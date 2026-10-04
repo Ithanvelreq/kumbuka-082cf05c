@@ -1,1 +1,18 @@
 project_id = "pwbrpdtxxdotfapwqsvm"
+
+# Kumbuka edge functions. Called from the call simulator with the publishable key, which is not a JWT,
+# so gateway JWT verification must be off. Data access is gated by patient number + PIN inside the functions.
+[functions.auth]
+verify_jwt = false
+
+[functions.ingest]
+verify_jwt = false
+
+[functions.retrieve]
+verify_jwt = false
+
+[functions.log-instruction]
+verify_jwt = false
+
+[functions.inbox]
+verify_jwt = false

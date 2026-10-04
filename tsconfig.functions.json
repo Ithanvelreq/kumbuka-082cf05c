@@ -1,0 +1,16 @@
+{
+  "//": "Typechecks the pure layers (domain + use cases) and tests. Infra/handlers use Deno npm: specifiers and are checked by Deno at deploy time.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["supabase/functions/_shared/domain", "supabase/functions/_shared/use-cases", "tests"]
+}
