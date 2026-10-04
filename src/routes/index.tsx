@@ -31,8 +31,9 @@ function Index() {
           />
         </h1>
       </header>
-      <div className="mx-auto mt-8 flex max-w-6xl flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-center">
-        {/* The phone stays in view while the instructions scroll beside it. */}
+      <div className="mx-auto mt-8 flex max-w-6xl flex-col items-center gap-8 lg:flex-row-reverse lg:items-start lg:justify-center">
+        {/* Phone first in the DOM (top on narrow screens); flex-row-reverse puts it on the right on wide screens.
+            It stays in view while the instructions scroll beside it. */}
         <div className="lg:sticky lg:top-6">
           <BasicPhone />
         </div>
