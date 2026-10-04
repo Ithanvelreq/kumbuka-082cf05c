@@ -12,6 +12,7 @@ There's no doctor login. The doctor uses the same call with the patient's number
 - **Flow 1 – patient records a symptom:** speech → Whisper → English → small LLM structures it → `symptom_log` event.
 - **Flow 2 – doctor hears the history:** all events → an English summary → translated into the call language (same check as message playback) → read out. If the translation can't be trusted, the doctor hears the English summary, introduced as such.
 - **Flow 3 – doctor records a diagnosis/prescription:** speech → Whisper → the **English transcript is stored as-is** (no LLM rewording). The patient hears it later, translated into their call language.
+- **Flow 4 – doctor asks the record a question** ("when did the fever start?"): speech → Whisper → English question → the AI answers **only from the logged entries**, citing entry dates → translated into the call language → read out. It never diagnoses or advises, says when something isn't recorded, and nothing is stored.
 
 **Storage is always English.** The language picked at the start of the call only selects which models translate at the edges ([`languages.ts`](supabase/functions/_shared/infra/languages.ts)):
 
@@ -74,6 +75,7 @@ All functions are `POST` with a JSON body. Audio is `{ "base64": "...", "mime_ty
 | `ingest` | `{ patient_id, pin, call_lang, audio }` | `{ event }` |
 | `retrieve` | `{ patient_id, pin, call_lang }` | `{ summary, empty, fallback, entries[] }` |
 | `log-instruction` | `{ patient_id, pin, call_lang, type, audio }` | `{ event }` |
+| `ask` | `{ patient_id, pin, call_lang, audio }` (spoken question) | `{ status, question_en, answer, answer_lang, uses_unconfirmed }` |
 | `inbox` | `{ patient_id, pin, call_lang }` | `{ messages[] }` (text in `call_lang`, or `null` = unclear) |
 
 Errors: `400 invalid_input`, `404 not_found`, `503 service_busy`, `500 internal`.
@@ -111,7 +113,7 @@ The infra and handler files use Deno `npm:` imports, so `tsc` doesn't check them
 Press 📞 to call. Use the on-screen keypad or your keyboard (Enter = `#`). Hang up (⏻) between roles.
 
 1. **Patient call:** `1` (Swahili) → `1001#` (synthetic demo patient) → any PIN `1234#` → `1` patient → `1` record a symptom → speak, or send a demo clip → "Imehifadhiwa". Do it again with `silence.wav` → "…haikueleweka vizuri. Mtu ataikagua." (the fail-safe).
-2. **Doctor call:** `2` (English) → `1001#` → `1234#` → `2` doctor → `1` hear history: a short English summary, plus the transcripts of unclear entries on screen. Then `3` → speak a prescription → "Saved."
+2. **Doctor call:** `2` (English) → `1001#` → `1234#` → `2` doctor → `1` hear history: a short English summary, plus the transcripts of unclear entries on screen. Then `3` → speak a prescription → "Saved." Then `5` → ask "When did the fever start?" → "On 2026-10-01 the patient reported fever at night since yesterday."
 3. **Patient call again:** `1` → `1001#` → `1234#` → `1` → `2` hear messages → the prescription is read in Swahili.
 4. A fresh number (e.g. `2002#`) → "not registered, press 1 to register".
 

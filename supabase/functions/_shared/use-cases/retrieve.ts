@@ -2,9 +2,9 @@
 // edge (same check as message playback), read to the doctor. If the translation can't be trusted, the doctor
 // hears the English summary instead of a possibly wrong one.
 import { NotFoundError, ServiceBusyError } from "../domain/errors.ts";
-import { numbersPreserved } from "../domain/needs-review.ts";
 import type { PatientStore, Storage, Summarizer } from "../domain/ports.ts";
 import { type CallLang, type Event, UNCLEAR_LABEL } from "../domain/types.ts";
+import { translateOrNull } from "./translate-checked.ts";
 
 /** ~20 seconds of reading. Longer model output is cut at a word boundary. */
 export const SMS_MAX_CHARS = 320;
@@ -62,21 +62,10 @@ export async function retrieve(input: RetrieveInput, deps: RetrieveDeps): Promis
   }
 
   if (input.targetLang === "en") return { summary: summaryEn, summary_lang: "en", empty: false, fallback: false, entries };
-  const translated = await translateOrNull(summaryEn, input.targetLang, deps);
+  const translated = await translateOrNull(deps.summarizer, summaryEn, input.targetLang);
   return translated === null
     ? { summary: summaryEn, summary_lang: "en", empty: false, fallback: false, entries }
     : { summary: clampSms(translated), summary_lang: input.targetLang, empty: false, fallback: false, entries };
-}
-
-/** Translation the doctor can rely on, or null. Any failure (including busy) falls back to the English summary we have. */
-async function translateOrNull(textEn: string, lang: CallLang, deps: RetrieveDeps): Promise<string | null> {
-  try {
-    const tr = await deps.summarizer.fromEnglish(textEn, lang);
-    const text = tr.text.trim();
-    return tr.confidence !== "low" && text !== "" && numbersPreserved(textEn, text) ? text : null;
-  } catch {
-    return null;
-  }
 }
 
 function toView(e: Event): EntryView {

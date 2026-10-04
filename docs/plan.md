@@ -18,6 +18,7 @@ There is no doctor login. The doctor gets access to a patient's record by being 
 - **Flow 1, patient logs a symptom:** the patient speaks -> Whisper (to English) -> small LLM structures it into JSON -> stored in Supabase.
 - **Flow 2, doctor retrieves history:** doctor presses 1 -> entries read from Supabase -> the LLM writes a short summary (about 20 seconds when read aloud) in the call language.
 - **Flow 3, doctor records diagnosis/prescription:** the doctor *speaks* it (a keypad call has no typing) -> Whisper -> the English transcript is stored as an `events` row (`doctor_diagnosis`, `doctor_prescription`, or a `symptom_log` consult note). When the patient later presses "hear messages", it is translated into that call's language and played back. No length cap: the doctor's speech is passed through in full.
+- **Flow 4, doctor asks the record a question:** the doctor presses 5 and *speaks* a question ("when did the fever start?") -> Whisper -> English question -> the LLM answers only from the logged entries, citing the date of each entry it relies on -> translated into the call language -> read out. Rules enforced in code, not just the prompt: answers must cite at least one date and every cited date must be a day with a logged entry (otherwise "no reliable answer"); answers citing a day with an unconfirmed entry get "unclear, ask a person"; diagnosis/advice questions get a fixed "I can only report what was recorded"; an unclear question is never sent to the model. Timing is reported as said plus the log date; the model doesn't compute new dates. Neither question nor answer is stored.
 
 **Storage language is always English.** The language chosen at the start of the call never changes what is stored. It only selects which models do the translation at the edges:
 
@@ -210,6 +211,7 @@ Each function validates input, calls `storage`, returns JSON, and handles errors
 - **`retrieve`:** input `{ patient_id, pin, call_lang }`. Load all `events` for the patient, then one LLM call that summarizes **in English**, then a separate translation into `call_lang` with the same checks as `inbox` playback (confidence, numbers unchanged). If the translation fails those checks, return the English summary. (Asking a small model to summarize directly in Swahili was observed to answer in English.) Output must be short (about 20 seconds read aloud), only report what was logged, mark any `needs_review` entries as unconfirmed. Empty history returns "No entries yet".
 - **`log-instruction`:** input `{ patient_id, pin, call_lang, type, audio }` where `type` is `doctor_diagnosis` or `doctor_prescription` (or `symptom_log` with `reported_by: 'doctor'` for a consult note). Whisper turns the audio into English (same as `ingest`, audio discarded right after). The English transcript is stored as-is, with no LLM rewording and no length cap.
 - **`inbox`:** input `{ patient_id, pin, call_lang }`. Returns doctor messages translated from the stored English into `call_lang` at playback. If the translation is low-confidence, fails, or changes any number (doses, dates), the message is not played: it says "unclear, ask a person" instead.
+- **`ask`:** input `{ patient_id, pin, call_lang, audio }`. The doctor's spoken question -> Whisper -> English -> answer from the logged entries only (flow 4), checked for grounding (cited dates exist) and translated like the summary. Returns `{ status, question_en, answer, answer_lang, uses_unconfirmed }`; nothing is stored.
 - **`auth`:** **not wired in yet for this build** — the `PinCrypto` port (section 6) is defined so it's ready to plug in, but for now the demo skips real auth: `signup` creates `{id}` (numeric patient number, typed on a keypad) and stores a `pin_check` via `NoOpPinCrypto`, `login` just checks the ID exists. No sessions: the call holds the number and PIN until hang-up. Wire up real PIN verification later if time allows.
 
 ## 9. Frontend (call simulator)
@@ -218,7 +220,7 @@ One basic phone: a small screen, a keypad (`0-9 * #`), and call / hang-up button
 
 - **Menu:** language (1 Swahili, 2 English) -> patient number `#` -> PIN `#` -> role (1 patient, 2 doctor). Prompts are shown as "🔊" lines, with optional browser text-to-speech.
 - **Patient menu:** 1 record a symptom (speak), 2 hear doctor messages.
-- **Doctor menu:** 1 hear history, 2 record diagnosis, 3 record prescription, 4 record consultation note.
+- **Doctor menu:** 1 hear history, 2 record diagnosis, 3 record prescription, 4 record consultation note, 5 ask a question about the history.
 - "Speaking" = recording from the mic or picking a pre-recorded demo clip. `*` goes back.
 - `needs_review` items are said as "Unclear, ask a person". For the doctor, the English transcript of unclear entries is shown on screen.
 - Hanging up wipes all state on the phone.

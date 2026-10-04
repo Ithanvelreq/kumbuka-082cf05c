@@ -39,11 +39,20 @@ export interface Translation {
   confidence: Confidence | null;
 }
 
+/** The model's answer to a doctor's question about the record. Validated and checked by the use case. */
+export interface HistoryAnswer {
+  status: "answered" | "not_recorded" | "out_of_scope";
+  answer: string;
+  confidence: Confidence | null;
+}
+
 export interface Summarizer {
   /** English transcript -> loose JSON with note_en/confidence/details. May throw or return junk. */
   structureSymptom(transcriptEn: string): Promise<RawStructured>;
   /** History -> short summary in English (the pivot language). Translation happens separately, at the edge. */
   summarizeHistory(events: Event[]): Promise<string>;
+  /** Doctor's question (English) -> answer from the logged entries only, in English. */
+  answerQuestion(events: Event[], questionEn: string): Promise<HistoryAnswer>;
   /** Stored English text -> call language, for playback. Faithful, nothing added. */
   fromEnglish(textEn: string, callLang: CallLang): Promise<Translation>;
 }
