@@ -46,7 +46,7 @@ export function optionalString(body: Record<string, unknown>, key: string, fallb
   return typeof v === "string" && v.trim() !== "" ? v.trim() : fallback;
 }
 
-/** Language chosen at the start of the call ("for Swahili press 1, for English press 2"). */
+/** Language chosen at the start of the call (1 Swahili, 2 English, 3 Spanish, 4 Ukrainian). */
 export function requireCallLang(body: Record<string, unknown>, key = "call_lang"): CallLang {
   const v = body[key];
   if (!isCallLang(v)) throw new ValidationError(`${key} must be one of ${CALL_LANGS.join(", ")}`);

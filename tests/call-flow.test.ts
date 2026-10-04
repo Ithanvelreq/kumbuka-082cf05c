@@ -9,10 +9,17 @@ function keys(s: CallState, seq: string): Transition {
   return tr;
 }
 
-test("call opens with the bilingual language prompt", () => {
+test("call opens with the language prompt, one line per language", () => {
   const tr = startCall();
   assert.equal(tr.state.step, "lang");
-  assert.deepEqual(tr.say, [LANG_PROMPT]);
+  assert.deepEqual(tr.say, LANG_PROMPT);
+  assert.equal(tr.say.length, 4);
+});
+
+test("an unknown key repeats the language prompt", () => {
+  const tr = press(startCall().state, "9");
+  assert.equal(tr.state.step, "lang");
+  assert.deepEqual(tr.say, LANG_PROMPT);
 });
 
 test("language -> number -> PIN -> login effect", () => {
@@ -32,6 +39,15 @@ test("Swahili choice gives Swahili prompts", () => {
   const tr = press(startCall().state, "1");
   assert.equal(tr.state.lang, "sw");
   assert.match(tr.say[0], /namba ya mgonjwa/);
+});
+
+test("Spanish (3) and Ukrainian (4) give prompts in that language", () => {
+  const es = press(startCall().state, "3");
+  assert.equal(es.state.lang, "es");
+  assert.match(es.say[0], /número del paciente/);
+  const uk = press(startCall().state, "4");
+  assert.equal(uk.state.lang, "uk");
+  assert.match(uk.say[0], /номер пацієнта/);
 });
 
 test("short entries are rejected and * clears", () => {
