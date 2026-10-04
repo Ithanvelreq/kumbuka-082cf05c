@@ -8,7 +8,7 @@ A phone-accessible medical ledger for a patient with a basic phone (persona: Noo
 
 It works like a **phone call from any throwaway basic phone**, not a smartphone app. Patient and doctor use the same call (often the patient's phone, handed to the doctor). The call goes:
 
-1. "For Swahili press 1, for English press 2."
+1. "For Swahili press 1, for English press 2, for Spanish press 3, for Ukrainian press 4." (Each option is said in its own language.)
 2. Enter the patient number, then `#`.
 3. Enter the PIN, then `#`. (Unknown number: press 1 to register with this PIN.)
 4. "If you are the patient press 1, if you are the doctor press 2."
@@ -16,14 +16,14 @@ It works like a **phone call from any throwaway basic phone**, not a smartphone 
 There is no doctor login. The doctor gets access to a patient's record by being given the patient number and PIN, which is the patient's consent.
 
 - **Flow 1, patient logs a symptom:** the patient speaks -> Whisper (to English) -> small LLM structures it into JSON -> stored in Supabase.
-- **Flow 2, doctor retrieves history:** doctor presses 1 -> entries read from Supabase -> the LLM writes a short summary (about 20 seconds when read aloud) in the call language.
+- **Flow 2, doctor retrieves history:** doctor presses 1 -> entries read from Supabase -> the LLM writes a short English summary (about 20 seconds when read aloud) -> translated into the call language with the playback checks (see `retrieve` in section 8).
 - **Flow 3, doctor records diagnosis/prescription:** the doctor *speaks* it (a keypad call has no typing) -> Whisper -> the English transcript is stored as an `events` row (`doctor_diagnosis`, `doctor_prescription`, or a `symptom_log` consult note). When the patient later presses "hear messages", it is translated into that call's language and played back. No length cap: the doctor's speech is passed through in full.
 - **Flow 4, doctor asks the record a question:** the doctor presses 5 and *speaks* a question ("when did the fever start?") -> Whisper -> English question -> the LLM answers only from the logged entries, citing the date of each entry it relies on -> translated into the call language -> read out. Rules enforced in code, not just the prompt: answers must cite at least one date and every cited date must be a day with a logged entry (otherwise "no reliable answer"); answers citing a day with an unconfirmed entry get "unclear, ask a person"; diagnosis/advice questions get a fixed "I can only report what was recorded"; an unclear question is never sent to the model. Timing is reported as said plus the log date; the model doesn't compute new dates. Neither question nor answer is stored.
 
 **Storage language is always English.** The language chosen at the start of the call never changes what is stored. It only selects which models do the translation at the edges:
 
 - English call: Whisper *transcribes*, and no output translation is needed.
-- Swahili call: Whisper *translates* speech into English, and the LLM writes output in Swahili.
+- Swahili, Spanish or Ukrainian call: Whisper *translates* speech into English, and the LLM writes output in the call language.
 
 The per-language model table lives in one infra file.
 
@@ -47,37 +47,47 @@ The per-language model table lives in one infra file.
 Three layers, strict import direction: **infra -> use cases -> domain**. Nothing ever imports outward.
 
 - **Domain (center):** pure types, no I/O, no Supabase/Groq imports. This is the `events`/`patients` model from section 5 — the `Patient` type, the `EventType` union, the four `content` shapes, `needs_review` logic as a pure function. Also the `Storage` interface (the port) lives here, not its implementation.
-- **Use cases:** the four flows (ingest, retrieve, log-instruction, auth). Each one is a plain function that takes its inputs plus injected ports (`Storage`, a `Transcriber` port, a `Summarizer`/LLM port) and returns domain types. Use cases import **only** from domain — never from Supabase SDK, Groq SDK, or Deno/HTTP specifics directly.
+- **Use cases:** ingest, retrieve, log-instruction, inbox, ask and auth (plus the shared translate-checked helper). Each one is a plain function that takes its inputs plus injected ports (`Storage`, a `Transcriber` port, a `Summarizer`/LLM port) and returns domain types. Use cases import **only** from domain — never from Supabase SDK, Groq SDK, or Deno/HTTP specifics directly.
 - **Infra (edges):** everything concrete — `SupabaseStorage` implementing the `Storage` port, `GroqTranscriber` and `GroqSummarizer` implementing the LLM ports, the Deno edge function HTTP handlers that parse a request, call a use case, and serialize the response. This is also where `PlainStorage` vs `EncryptedStorage` (section 7) gets swapped in.
 
 This keeps the hard rules in section 2 (never diagnose, always flag `needs_review`, no audio persisted) enforceable and testable in the use-case layer, independent of which LLM or database you're actually hitting.
 
-## 5. Repo layout (suggested)
+## 5. Repo layout
 
 ```
 /src                                phone simulator UI
   /components                       BasicPhone (keypad call), AudioPicker
+  /lib                              call-flow (menu state machine), api, audio, speech (voice choice), clips
 /supabase
-  /migrations                       SQL files, ordered: patients, events
+  /migrations                       SQL files, ordered: patients, events, synthetic seed
   /functions
-    /domain
-      types.ts                      Patient, Event, EventType, the four content shapes
-      needs-review.ts                pure needs_review rules (section 5's "Confidence and needs_review")
-      ports.ts                      Storage, Transcriber, Summarizer interfaces (no implementations)
-    /use-cases
-      ingest.ts                     flow 1: audio -> transcript -> structured symptom_log -> store
-      retrieve.ts                   flow 2: patient id -> short spoken summary in call_lang
-      log-instruction.ts            flow 3: doctor audio -> English diagnosis/prescription event -> store
-      auth.ts                       signup + login check (ID + PIN)
-    /infra
-      supabase-storage.ts           Storage port implementation (Plain, later Encrypted)
-      groq-transcriber.ts           Transcriber port implementation (Whisper via Groq)
-      groq-summarizer.ts            Summarizer port implementation (small instruct model via Groq)
-      prompts.ts                    all prompts in one place
-    /ingest                         Deno handler: parse request -> call use-cases/ingest -> respond
-    /retrieve                       Deno handler: parse request -> call use-cases/retrieve -> respond
-    /log-instruction                Deno handler: parse request -> call use-cases/log-instruction -> respond
-    /auth                           Deno handler: parse request -> call use-cases/auth -> respond
+    /_shared                        shared code (underscore = not deployed as a function)
+      /domain
+        types.ts                    Patient, Event, EventType, the four content shapes, call languages
+        schema.ts                   content validation per type
+        needs-review.ts             pure needs_review rules (section 6's "Confidence and needs_review") + number check
+        grounding.ts                answers must cite dates of logged entries (flow 4)
+        ports.ts                    Storage, PatientStore, PinCrypto, Transcriber, Summarizer interfaces
+        errors.ts
+      /use-cases
+        ingest.ts                   flow 1: audio -> transcript -> structured symptom_log -> store
+        retrieve.ts                 flow 2: patient id -> English summary -> translated into call_lang
+        log-instruction.ts          flow 3: doctor audio -> English diagnosis/prescription event -> store
+        inbox.ts                    flow 3 playback: doctor messages translated for the patient
+        ask.ts                      flow 4: doctor's spoken question -> grounded answer, nothing stored
+        auth.ts                     signup + login check (ID + PIN)
+        translate-checked.ts        English -> call language with the playback checks
+      /infra
+        supabase-storage.ts         Storage + PatientStore implementations (Plain, later Encrypted)
+        groq-transcriber.ts         Transcriber port implementation (Whisper via Groq)
+        groq-summarizer.ts          Summarizer port implementation (small instruct model via Groq)
+        groq-http.ts                timeout, retry, model fallback for every Groq call
+        languages.ts                per-language model table
+        prompts.ts                  all prompts in one place
+        pin-crypto.ts               NoOpPinCrypto stub
+        http.ts, container.ts       request parsing/error mapping; the one place implementations are chosen
+    /ingest /retrieve /log-instruction /inbox /ask /auth
+                                    Deno handlers: parse request -> call the use case -> respond
 ```
 
 ## 6. Data model
@@ -118,7 +128,7 @@ interface PinCrypto {
 - **Now:** `NoOpPinCrypto` does nothing real — signup just stores `id` as-is in `pin_check` (or a trivial reversible marker), `verifyPin` always returns `true` for the demo. Clearly labeled as a stub in code and in the README.
 - **Later, if time:** real implementation (e.g. AES with a key derived from the PIN via PBKDF2/Argon2, `verifyPin` does the actual decrypt-and-compare). Swapping `NoOpPinCrypto` for the real one is a one-line change at injection time, same pattern as `Storage` in section 7.
 
-Note: auth itself is not being wired into the demo flow yet (see section 9's `auth` note) — this `PinCrypto` port is prepared now so it drops in cleanly once auth is connected.
+Note: the call flow does use `auth` (register and login), but with `NoOpPinCrypto`, so any well-formed PIN is accepted (see section 8's `auth` note). The `PinCrypto` port is there so a real implementation drops in cleanly.
 
 No `status` column on the table: `needs_review` lives inside `content` and is the single source of truth. Filter with `where content->>'needs_review' = 'true'` rather than keeping a separate status in sync.
 
@@ -188,12 +198,12 @@ The UI shows `needs_review` entries as "Unclear, ask a person" with the English 
 
 ## 7. Storage wrapper (dependency injection)
 
-All reads and writes of `events` go through one module, `_shared/storage.ts`. Edge functions never touch the tables directly.
+All reads and writes of `events` go through the `Storage` port (`_shared/domain/ports.ts`), implemented in `_shared/infra/supabase-storage.ts`. Edge functions never touch the tables directly.
 
 ```ts
 interface Storage {
-  store(patientId: string, data: unknown, pin: string): Promise<void>;
-  retrieve(patientId: string, pin: string): Promise<unknown[]>;
+  store(patientId: string, event: NewEvent, pin: string): Promise<Event>;
+  retrieve(patientId: string, pin: string): Promise<Event[]>;
 }
 ```
 
@@ -206,22 +216,22 @@ The `pin` parameter here is only ever used as key material for encrypting/decryp
 
 Each function validates input, calls `storage`, returns JSON, and handles errors (see section 9).
 
-- All functions take `call_lang` (`sw` | `en`), which only picks models. Nothing is stored in it except `source_lang` as metadata.
+- All functions except `auth` take `call_lang` (`sw` | `en` | `es` | `uk`), which only picks models. Nothing is stored in it except `source_lang` as metadata.
 - **`ingest`:** input `{ patient_id, pin, call_lang, audio }`. Transcribe + translate to English with Whisper, discard audio, structure with the LLM (prompt rules in section 2) into a `symptom_log` event (`reported_by: 'patient'`), compute `needs_review`, store.
 - **`retrieve`:** input `{ patient_id, pin, call_lang }`. Load all `events` for the patient, then one LLM call that summarizes **in English**, then a separate translation into `call_lang` with the same checks as `inbox` playback (confidence, numbers unchanged). If the translation fails those checks, return the English summary. (Asking a small model to summarize directly in Swahili was observed to answer in English.) Output must be short (about 20 seconds read aloud), only report what was logged, mark any `needs_review` entries as unconfirmed. Empty history returns "No entries yet".
 - **`log-instruction`:** input `{ patient_id, pin, call_lang, type, audio }` where `type` is `doctor_diagnosis` or `doctor_prescription` (or `symptom_log` with `reported_by: 'doctor'` for a consult note). Whisper turns the audio into English (same as `ingest`, audio discarded right after). The English transcript is stored as-is, with no LLM rewording and no length cap.
 - **`inbox`:** input `{ patient_id, pin, call_lang }`. Returns doctor messages translated from the stored English into `call_lang` at playback. If the translation is low-confidence, fails, or changes any number (doses, dates), the message is not played: it says "unclear, ask a person" instead.
 - **`ask`:** input `{ patient_id, pin, call_lang, audio }`. The doctor's spoken question -> Whisper -> English -> answer from the logged entries only (flow 4), checked for grounding (cited dates exist) and translated like the summary. Returns `{ status, question_en, answer, answer_lang, uses_unconfirmed }`; nothing is stored.
-- **`auth`:** **not wired in yet for this build** — the `PinCrypto` port (section 6) is defined so it's ready to plug in, but for now the demo skips real auth: `signup` creates `{id}` (numeric patient number, typed on a keypad) and stores a `pin_check` via `NoOpPinCrypto`, `login` just checks the ID exists. No sessions: the call holds the number and PIN until hang-up. Wire up real PIN verification later if time allows.
+- **`auth`:** used by the call flow, but **real PIN verification is not wired in yet**. The `PinCrypto` port (section 6) is ready to plug in; for now `signup` creates `{id}` (3-15 digit patient number, typed on a keypad) and stores a `pin_check` via `NoOpPinCrypto`, and `login` just checks the ID exists (the PIN must still be 4-6 digits). No sessions: the call holds the number and PIN until hang-up.
 
 ## 9. Frontend (call simulator)
 
 One basic phone: a small screen, a keypad (`0-9 * #`), and call / hang-up buttons. It simulates a voice call, not an app.
 
-- **Menu:** language (1 Swahili, 2 English) -> patient number `#` -> PIN `#` -> role (1 patient, 2 doctor). Prompts are shown as "🔊" lines, with optional browser text-to-speech.
+- **Menu:** language (1 Swahili, 2 English, 3 Spanish, 4 Ukrainian) -> patient number `#` -> PIN `#` -> role (1 patient, 2 doctor). Prompts are shown as "🔊" lines and read aloud through the PC speakers by default, with an installed browser voice for the language (🔊 mutes; a keypress cuts the current prompt short).
 - **Patient menu:** 1 record a symptom (speak), 2 hear doctor messages.
 - **Doctor menu:** 1 hear history, 2 record diagnosis, 3 record prescription, 4 record consultation note, 5 ask a question about the history.
-- "Speaking" = recording from the mic or picking a pre-recorded demo clip. `*` goes back.
+- "Speaking" = recording from the PC mic, or a pre-recorded demo clip as a fallback. `*` goes back.
 - `needs_review` items are said as "Unclear, ask a person". For the doctor, the English transcript of unclear entries is shown on screen.
 - Hanging up wipes all state on the phone.
 

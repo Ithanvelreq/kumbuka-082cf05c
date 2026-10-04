@@ -1,4 +1,4 @@
-// POST { patient_id, pin, call_lang: "sw" | "en", audio: { base64, mime_type } }
+// POST { patient_id, pin, call_lang: "sw" | "en" | "es" | "uk", audio: { base64, mime_type } }
 // Doctor's spoken question about the record -> answer from logged entries only. Nothing is stored.
 import { makeDeps } from "../_shared/infra/container.ts";
 import { handler, parseAudio, requireCallLang, requireString } from "../_shared/infra/http.ts";
