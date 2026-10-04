@@ -17,5 +17,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      # Edge functions use Deno npm: imports, which tsc can't check; Deno is what Supabase deploys with.
+      - uses: denoland/setup-deno@v2
+      - run: deno check supabase/functions/*/index.ts
       - run: bun run test
       - run: bun run build

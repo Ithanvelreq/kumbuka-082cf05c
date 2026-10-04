@@ -22,8 +22,9 @@ export class GroqTranscriber implements Transcriber {
     const path = whisperMode === "transcribe" ? "/audio/transcriptions" : "/audio/translations";
     const res = (await groqFetch(path, () => {
       const form = new FormData();
-      const clip: Uint8Array<ArrayBuffer> = new Uint8Array(audio.bytes);
-      form.append("file", new Blob([clip], { type: mime }), `clip.${EXT[mime] ?? "webm"}`);
+      // No copy: the use case zeroes audio.bytes right after this call, and a copy would escape that wipe.
+      // The bytes come from `new Uint8Array(n)` in http.ts, so the buffer is a plain ArrayBuffer.
+      form.append("file", new Blob([audio.bytes as Uint8Array<ArrayBuffer>], { type: mime }), `clip.${EXT[mime] ?? "webm"}`);
       form.append("model", whisperModel);
       form.append("response_format", "verbose_json");
       form.append("temperature", "0");

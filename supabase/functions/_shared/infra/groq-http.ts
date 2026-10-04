@@ -11,7 +11,8 @@ export function envOr(name: string, fallback: string): string {
 }
 
 export const WHISPER_MODEL = envOr("GROQ_WHISPER_MODEL", "whisper-large-v3");
-export const LLM_MODEL = envOr("GROQ_LLM_MODEL", "llama-3.1-8b-instant");
+// Llama models are Enterprise-only on Groq's developer plan; gpt-oss-20b is open (Apache 2.0), small and fast.
+export const LLM_MODEL = envOr("GROQ_LLM_MODEL", "openai/gpt-oss-20b");
 
 function apiKey(): string {
   const key = Deno.env.get("GROQ_API_KEY");
@@ -22,7 +23,23 @@ function apiKey(): string {
 const retryable = (status: number) => status === 429 || status >= 500;
 
 /** Non-retryable upstream error (bad request, auth). Surfaces as a 500, not "busy". */
-class GroqRequestError extends Error {}
+class GroqRequestError extends Error {
+  /** Groq's machine-readable error code, e.g. "model_not_found". */
+  code: string | null;
+  constructor(message: string, code: string | null) {
+    super(message);
+    this.code = code;
+  }
+}
+
+function groqErrorCode(body: string): string | null {
+  try {
+    const code = (JSON.parse(body) as { error?: { code?: unknown } }).error?.code;
+    return typeof code === "string" ? code : null;
+  } catch {
+    return null;
+  }
+}
 
 /** `makeBody` is called per attempt so request bodies are never reused after being consumed. */
 export async function groqFetch(path: string, makeBody: () => BodyInit, contentType?: string): Promise<unknown> {
@@ -40,7 +57,7 @@ export async function groqFetch(path: string, makeBody: () => BodyInit, contentT
       if (!retryable(res.status)) {
         // Groq error bodies describe the request problem (model, format), not patient content.
         console.error(`Groq ${path} rejected: ${lastError}`);
-        throw new GroqRequestError(`Groq ${path} failed: ${lastError}`);
+        throw new GroqRequestError(`Groq ${path} failed: ${lastError}`, groqErrorCode(text));
       }
       if (res.status === 429) {
         const wait = Number(res.headers.get("retry-after"));
@@ -58,13 +75,38 @@ export async function groqFetch(path: string, makeBody: () => BodyInit, contentT
   throw new ServiceBusyError();
 }
 
-export async function groqChatJson(system: string, user: string, model = LLM_MODEL): Promise<unknown> {
+/**
+ * Chat models tried in order when the preferred one doesn't exist for this Groq account
+ * (seen on Lovable Cloud: "model_not_found" for llama-3.1-8b-instant, which is Enterprise-only).
+ * Small and fast first; both are on Groq's developer plan.
+ */
+const LLM_FALLBACKS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b"];
+/** Models Groq said this account can't use; remembered for the life of the function instance. */
+const unavailableModels = new Set<string>();
+
+export async function groqChatJson(system: string, user: string, preferred = LLM_MODEL): Promise<unknown> {
+  const models = [...new Set([preferred, ...LLM_FALLBACKS])].filter((m) => !unavailableModels.has(m));
+  for (const model of models) {
+    try {
+      return await chatJsonOnce(system, user, model);
+    } catch (err) {
+      if (!(err instanceof GroqRequestError) || err.code !== "model_not_found") throw err;
+      unavailableModels.add(model);
+      console.warn(`Groq model ${model} not available to this account; trying the next one`);
+    }
+  }
+  throw new GroqRequestError(`No Groq chat model available (tried ${models.join(", ")})`, "model_not_found");
+}
+
+async function chatJsonOnce(system: string, user: string, model: string): Promise<unknown> {
   const res = (await groqFetch(
     "/chat/completions",
     () => JSON.stringify({
       model,
       temperature: 0,
       response_format: { type: "json_object" },
+      // gpt-oss are reasoning models; our tasks are extraction/translation, so keep reasoning short and fast.
+      ...(model.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" } : {}),
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
     }),
     "application/json",
