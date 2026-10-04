@@ -5,7 +5,7 @@ Full plan: [`docs/plan.md`](docs/plan.md).
 
 It's a **phone call from any throwaway basic phone**, not an app. The keypad menu goes:
 
-> "Kwa Kiswahili bonyeza 1. For English press 2." → patient number `#` → PIN `#` → "patient press 1, doctor press 2"
+> "Kwa Kiswahili bonyeza 1. For English press 2. Para español, pulse 3. Для русского языка нажмите 4." → patient number `#` → PIN `#` → "patient press 1, doctor press 2"
 
 There's no doctor login. The doctor uses the same call with the patient's number and PIN (the patient's consent).
 
@@ -19,6 +19,8 @@ There's no doctor login. The doctor uses the same call with the patient's number
 |---|---|---|
 | English (2) | Whisper *transcription* | as stored, no LLM |
 | Swahili (1) | Whisper *translation* → English | LLM writes Swahili (`GROQ_LLM_MODEL_SW` overridable) |
+| Spanish (3) | Whisper *translation* → English | LLM writes Spanish (`GROQ_LLM_MODEL_ES` overridable) |
+| Russian (4) | Whisper *translation* → English | LLM writes Russian (`GROQ_LLM_MODEL_RU` overridable) |
 
 ## What is live vs. planned (read this)
 
@@ -40,7 +42,7 @@ Both stubs are swapped with **one line** in [`supabase/functions/_shared/infra/c
 - Doctor messages are translated only at playback ([`inbox.ts`](supabase/functions/_shared/use-cases/inbox.ts)). If the translation is low-confidence, fails, or changes any number (doses, dates), the message is **not played**. The patient hears "unclear, ask a person".
 - **No audio is persisted.** Audio arrives as base64, is decoded in memory, sent to Whisper, and the buffer is zeroed right after transcription, even on failure. Nothing writes audio to disk, storage buckets or the DB.
 - Minimal data: the summary prompt only sees date, type, note and flag, never raw transcripts.
-- Prompt texts in Swahili ([`call-flow.ts`](src/lib/call-flow.ts)) still need review by a native speaker.
+- Prompt texts in Swahili, Spanish and Russian ([`call-flow.ts`](src/lib/call-flow.ts)) still need review by native speakers.
 - Every Groq call has a 15s timeout and one retry. 429/5xx/timeouts become HTTP 503, and the UI shows **"Service busy, try again"**.
 
 ## Architecture (hexagonal)
@@ -64,7 +66,7 @@ Shared code lives under `_shared/` (underscore = not deployed as a function, per
 ### API
 
 All functions are `POST` with a JSON body. Audio is `{ "base64": "...", "mime_type": "audio/webm" }`.
-`call_lang` is `"sw"` or `"en"`. It only picks models; storage is English.
+`call_lang` is `"sw"`, `"en"`, `"es"` or `"ru"`. It only picks models; storage is English.
 
 | Function | Body | Returns |
 |---|---|---|
@@ -86,7 +88,7 @@ One-time backend setup, done through Lovable's chat:
 
 1. **Database:** "Apply the SQL migrations in `supabase/migrations` in filename order: patients, events, seed." Lovable shows each one for approval.
    Both tables intentionally have RLS **on with no policies**: only the edge functions (service role) can touch them. If Lovable's security check suggests adding policies, decline.
-2. **Secret:** add `GROQ_API_KEY` (free key at console.groq.com) when Lovable prompts for it, or in the Cloud secrets settings. Optional overrides: `GROQ_WHISPER_MODEL`, `GROQ_LLM_MODEL`, `GROQ_WHISPER_MODEL_SW`, `GROQ_LLM_MODEL_SW`. `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
+2. **Secret:** add `GROQ_API_KEY` (free key at console.groq.com) when Lovable prompts for it, or in the Cloud secrets settings. Optional overrides: `GROQ_WHISPER_MODEL`, `GROQ_LLM_MODEL`, `GROQ_WHISPER_MODEL_SW`, `GROQ_LLM_MODEL_SW` (and the same with `_ES` / `_RU`). `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 3. **Edge functions:** "Deploy the edge functions in `supabase/functions`: auth, ingest, retrieve, log-instruction, inbox." `supabase/config.toml` sets `verify_jwt = false` for them, because the app calls them with the publishable key, which isn't a JWT.
 4. **After every merge that touches `supabase/functions/`**, ask Lovable's chat to "Redeploy all edge functions". Merging alone doesn't redeploy them; the app keeps running the old backend code until you ask.
 5. **Demo clips:** put pre-recorded Swahili clips in `public/clips/` and list them in `src/lib/clips.ts`. `silence.wav` (near-silent, generated) is included to show the `needs_review` fail-safe.

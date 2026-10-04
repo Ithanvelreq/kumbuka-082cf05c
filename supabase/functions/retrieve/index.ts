@@ -1,4 +1,4 @@
-// POST { patient_id, pin, call_lang: "sw" | "en" }
+// POST { patient_id, pin, call_lang: "sw" | "en" | "es" | "ru" }
 import { makeDeps } from "../_shared/infra/container.ts";
 import { handler, requireCallLang, requireString } from "../_shared/infra/http.ts";
 import { retrieve } from "../_shared/use-cases/retrieve.ts";

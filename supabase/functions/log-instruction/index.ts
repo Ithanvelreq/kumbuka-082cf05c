@@ -1,4 +1,4 @@
-// POST { patient_id, pin, type, call_lang: "sw" | "en", audio: { base64, mime_type } }
+// POST { patient_id, pin, type, call_lang: "sw" | "en" | "es" | "ru", audio: { base64, mime_type } }
 // type: doctor_diagnosis | doctor_prescription | symptom_log (consult note, reported_by: doctor)
 import { ValidationError } from "../_shared/domain/errors.ts";
 import { makeDeps } from "../_shared/infra/container.ts";

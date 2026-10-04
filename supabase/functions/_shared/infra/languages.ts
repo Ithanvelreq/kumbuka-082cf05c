@@ -20,4 +20,16 @@ export const LANG_MODELS: Record<CallLang, LangModels> = {
     whisperModel: envOr("GROQ_WHISPER_MODEL_SW", WHISPER_MODEL),
     llmModel: envOr("GROQ_LLM_MODEL_SW", LLM_MODEL),
   },
+  es: {
+    name: "Spanish",
+    whisperMode: "translate",
+    whisperModel: envOr("GROQ_WHISPER_MODEL_ES", WHISPER_MODEL),
+    llmModel: envOr("GROQ_LLM_MODEL_ES", LLM_MODEL),
+  },
+  ru: {
+    name: "Russian",
+    whisperMode: "translate",
+    whisperModel: envOr("GROQ_WHISPER_MODEL_RU", WHISPER_MODEL),
+    llmModel: envOr("GROQ_LLM_MODEL_RU", LLM_MODEL),
+  },
 };

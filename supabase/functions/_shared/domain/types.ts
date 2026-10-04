@@ -3,10 +3,10 @@
 export type Confidence = "high" | "medium" | "low";
 
 /**
- * Languages the call menu offers ("For Swahili press 1, for English press 2").
+ * Languages the call menu offers (1 Swahili, 2 English, 3 Spanish, 4 Russian).
  * Storage is ALWAYS English. The call language only selects which models translate at the edges.
  */
-export const CALL_LANGS = ["sw", "en"] as const;
+export const CALL_LANGS = ["sw", "en", "es", "ru"] as const;
 export type CallLang = (typeof CALL_LANGS)[number];
 
 export function isCallLang(v: unknown): v is CallLang {

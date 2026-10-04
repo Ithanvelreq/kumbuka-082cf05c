@@ -10,7 +10,7 @@ import {
   type CallState,
   type Effect,
   initialState,
-  LANG_PROMPT,
+  LANG_CHOICES,
   press,
   startCall,
   t,
@@ -25,7 +25,8 @@ interface Line {
 }
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
-const SPEECH_LANG = { sw: "sw-KE", en: "en-US" } as const;
+const SPEECH_LANG = { sw: "sw-KE", en: "en-US", es: "es-ES", ru: "ru-RU" } as const;
+const LANG_LABEL = { sw: "Kiswahili", en: "English", es: "Español", ru: "Русский" } as const;
 
 export function BasicPhone() {
   const [state, setState] = useState<CallState>(initialState);
@@ -48,7 +49,8 @@ export function BasicPhone() {
     if (kind === "voice" && speakerRef.current && "speechSynthesis" in window) {
       for (const text of texts) {
         const u = new SpeechSynthesisUtterance(text);
-        u.lang = text === LANG_PROMPT ? "sw-KE" : SPEECH_LANG[lang];
+        // The opening menu lines are each in their own language, whatever the call language is.
+        u.lang = SPEECH_LANG[LANG_CHOICES.find((c) => c.text === text)?.lang ?? lang];
         window.speechSynthesis.speak(u);
       }
     }
@@ -175,7 +177,7 @@ export function BasicPhone() {
 
       <div className="flex h-[260px] w-full flex-col rounded-md bg-lime-100 font-mono text-[11px] leading-snug text-slate-900 shadow-inner">
         <div className="flex justify-between border-b border-lime-300 px-2 py-1 text-[10px] text-slate-600">
-          <span>{inCall ? `☎ In call · ${state.lang === "sw" ? "Kiswahili" : "English"}` : "Ready"}</span>
+          <span>{inCall ? `☎ In call · ${LANG_LABEL[state.lang]}` : "Ready"}</span>
           <button onClick={toggleSpeaker} title={speaker ? "Mute prompts" : "Read prompts aloud (browser voice)"}>{speaker ? "🔊" : "🔈"}</button>
         </div>
         <div ref={screenRef} className="flex-1 space-y-1 overflow-y-auto px-2 py-1">
