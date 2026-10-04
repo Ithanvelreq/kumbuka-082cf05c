@@ -82,12 +82,13 @@ export function BasicPhone() {
         const res = await api.retrieve(s.number, s.pin, s.lang);
         if (!live()) return;
         if (!res.ok) return apply(backToMenu(s, [failure(res, s)]));
-        const { summary, empty, entries } = res.data;
+        const { summary, summary_lang, empty, entries } = res.data;
         if (empty) return apply(backToMenu(s, [t(s.lang, "no_entries")]));
         const flagged = entries.filter((e) => e.needs_review);
         // Clinician view only (screen, not voice): what was actually heard, in English.
         addLines("note", flagged.map((e) => `${e.created_at.slice(0, 10)} unclear · heard: “${e.transcript_en ?? "—"}”`));
-        return apply(backToMenu(s, [summary, ...(flagged.length ? [t(s.lang, "unconfirmed", { n: flagged.length })] : [])]));
+        const intro = summary_lang !== s.lang ? [t(s.lang, "summary_in_english")] : [];
+        return apply(backToMenu(s, [...intro, summary, ...(flagged.length ? [t(s.lang, "unconfirmed", { n: flagged.length })] : [])]));
       }
       case "inbox": {
         const res = await api.inbox(s.number, s.pin, s.lang);

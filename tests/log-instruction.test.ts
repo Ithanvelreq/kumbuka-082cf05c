@@ -103,4 +103,8 @@ test("numbersPreserved", () => {
   assert.equal(numbersPreserved("500 mg x 2", "2 fois 500 mg"), true);
   assert.equal(numbersPreserved("1.5 ml", "1,5 ml"), true);
   assert.equal(numbersPreserved("500 mg", "50 mg"), false);
+  assert.equal(numbersPreserved("2026-10-03", "3/10/2026"), true);
+  assert.equal(numbersPreserved("2026-10-03: 3 days", "2026-10-03: siku 8"), false, "changed number hidden by a date");
+  assert.equal(numbersPreserved("500 mg", "500 mg, mara 2"), false, "added number");
+  assert.equal(numbersPreserved("twice a day", "mara mbili kwa siku"), true);
 });

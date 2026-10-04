@@ -69,6 +69,7 @@ export interface InboxMessage {
 
 export interface RetrieveResult {
   summary: string;
+  summary_lang: CallLang;
   empty: boolean;
   fallback: boolean;
   entries: EntryView[];

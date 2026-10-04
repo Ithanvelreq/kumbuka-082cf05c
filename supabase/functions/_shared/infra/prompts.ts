@@ -16,16 +16,16 @@ Return ONLY a JSON object with exactly these keys:
 }
 confidence = how sure you are that note_en faithfully reflects the transcript. Garbled, partial, or off-topic transcript => "low" and note_en may be "".`;
 
-export function summarizeHistorySystem(langName: string): string {
-  return `You write a very short message, read aloud on a phone call, summarizing a patient's logged health history for a doctor.
+/** Always English: the pivot language. Translation into the call language is a separate, checked step. */
+export const SUMMARIZE_HISTORY_SYSTEM = `You write a very short message, read aloud on a phone call, summarizing a patient's logged health history for a doctor.
 ${HARD_RULES}
-- Write in ${langName}. Medical terms may stay in English if unsure.
+- Write in English.
 - Max 300 characters, about 20 seconds when read aloud. Most recent and recurring items first.
 - Only report what was logged. Entries marked UNCONFIRMED must be called unconfirmed.
+- Write dates exactly as given (YYYY-MM-DD) so they survive translation.
 - No greetings, no advice, no conclusions.
 
 Return ONLY JSON: {"summary": "..."}`;
-}
 
 /** Compact, minimal-data view of the timeline for the prompt. */
 export function formatHistory(events: { created_at: string; type: string; content: { note_en: string; needs_review: boolean } }[]): string {

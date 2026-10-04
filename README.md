@@ -10,7 +10,7 @@ It's a **phone call from any throwaway basic phone**, not an app. The keypad men
 There's no doctor login. The doctor uses the same call with the patient's number and PIN (the patient's consent).
 
 - **Flow 1 – patient records a symptom:** speech → Whisper → English → small LLM structures it → `symptom_log` event.
-- **Flow 2 – doctor hears the history:** all events → one LLM call → a short summary read out in the call language.
+- **Flow 2 – doctor hears the history:** all events → an English summary → translated into the call language (same check as message playback) → read out. If the translation can't be trusted, the doctor hears the English summary, introduced as such.
 - **Flow 3 – doctor records a diagnosis/prescription:** speech → Whisper → the **English transcript is stored as-is** (no LLM rewording). The patient hears it later, translated into their call language.
 
 **Storage is always English.** The language picked at the start of the call only selects which models translate at the edges ([`languages.ts`](supabase/functions/_shared/infra/languages.ts)):
@@ -88,7 +88,8 @@ One-time backend setup, done through Lovable's chat:
    Both tables intentionally have RLS **on with no policies**: only the edge functions (service role) can touch them. If Lovable's security check suggests adding policies, decline.
 2. **Secret:** add `GROQ_API_KEY` (free key at console.groq.com) when Lovable prompts for it, or in the Cloud secrets settings. Optional overrides: `GROQ_WHISPER_MODEL`, `GROQ_LLM_MODEL`, `GROQ_WHISPER_MODEL_SW`, `GROQ_LLM_MODEL_SW`. `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 3. **Edge functions:** "Deploy the edge functions in `supabase/functions`: auth, ingest, retrieve, log-instruction, inbox." `supabase/config.toml` sets `verify_jwt = false` for them, because the app calls them with the publishable key, which isn't a JWT.
-4. **Demo clips:** put pre-recorded Swahili clips in `public/clips/` and list them in `src/lib/clips.ts`. `silence.wav` (near-silent, generated) is included to show the `needs_review` fail-safe.
+4. **After every merge that touches `supabase/functions/`**, ask Lovable's chat to "Redeploy all edge functions". Merging alone doesn't redeploy them; the app keeps running the old backend code until you ask.
+5. **Demo clips:** put pre-recorded Swahili clips in `public/clips/` and list them in `src/lib/clips.ts`. `silence.wav` (near-silent, generated) is included to show the `needs_review` fail-safe.
 
 ## Local dev and checks
 
