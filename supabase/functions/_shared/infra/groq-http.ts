@@ -11,7 +11,8 @@ export function envOr(name: string, fallback: string): string {
 }
 
 export const WHISPER_MODEL = envOr("GROQ_WHISPER_MODEL", "whisper-large-v3");
-export const LLM_MODEL = envOr("GROQ_LLM_MODEL", "llama-3.1-8b-instant");
+// Llama models are Enterprise-only on Groq's developer plan; gpt-oss-20b is open (Apache 2.0), small and fast.
+export const LLM_MODEL = envOr("GROQ_LLM_MODEL", "openai/gpt-oss-20b");
 
 function apiKey(): string {
   const key = Deno.env.get("GROQ_API_KEY");
@@ -76,10 +77,10 @@ export async function groqFetch(path: string, makeBody: () => BodyInit, contentT
 
 /**
  * Chat models tried in order when the preferred one doesn't exist for this Groq account
- * (accounts can restrict models; seen on Lovable Cloud: "model_not_found" for llama-3.1-8b-instant).
- * Small and fast first.
+ * (seen on Lovable Cloud: "model_not_found" for llama-3.1-8b-instant, which is Enterprise-only).
+ * Small and fast first; both are on Groq's developer plan.
  */
-const LLM_FALLBACKS = ["llama-3.1-8b-instant", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"];
+const LLM_FALLBACKS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b"];
 /** Models Groq said this account can't use; remembered for the life of the function instance. */
 const unavailableModels = new Set<string>();
 
@@ -104,6 +105,8 @@ async function chatJsonOnce(system: string, user: string, model: string): Promis
       model,
       temperature: 0,
       response_format: { type: "json_object" },
+      // gpt-oss are reasoning models; our tasks are extraction/translation, so keep reasoning short and fast.
+      ...(model.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" } : {}),
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
     }),
     "application/json",

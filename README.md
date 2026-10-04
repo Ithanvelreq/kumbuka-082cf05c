@@ -24,7 +24,7 @@ There's no doctor login. The doctor uses the same call with the patient's number
 
 | | This demo (live) | Intended production design (planned) |
 |---|---|---|
-| Inference | **Cloud**: Groq API (`whisper-large-v3`, `llama-3.1-8b-instant`) | **Local** on a mini-PC: Whisper small + a small open LLM with a commercial license, on CPU |
+| Inference | **Cloud**: Groq API (`whisper-large-v3`, `openai/gpt-oss-20b`) | **Local** on a mini-PC: Whisper small + a small open LLM with a commercial license, on CPU |
 | PIN login check | **Stub** (`NoOpPinCrypto`): any PIN is accepted, login only checks the ID exists | `pin_check` = ID encrypted with a PIN-derived key (PBKDF2/Argon2 + AES-GCM). The PIN is never stored |
 | Data at rest | **Plaintext** (`PlainStorage`) | `EncryptedStorage`: content encrypted with a PIN-derived key |
 | Doctor access | Patient number + PIN on the call, then "press 2" (no doctor identity) | Same, plus one-time share codes / clinician verification |
