@@ -30,7 +30,8 @@ const SPEECH_LANG = { sw: "sw-KE", en: "en-US" } as const;
 export function BasicPhone() {
   const [state, setState] = useState<CallState>(initialState);
   const [lines, setLines] = useState<Line[]>([]);
-  const [speaker, setSpeaker] = useState(false);
+  const [speaker, setSpeaker] = useState(true); // prompts come out of the PC speakers
+  const speakerRef = useRef(speaker); // read by async effects, which hold an old render's closure
   const stateRef = useRef(state);
   const callId = useRef(0);
   const lineId = useRef(0);
@@ -44,13 +45,24 @@ export function BasicPhone() {
   function addLines(kind: Line["kind"], texts: string[], lang = stateRef.current.lang) {
     if (texts.length === 0) return;
     setLines((prev) => [...prev, ...texts.map((text) => ({ id: ++lineId.current, kind, text }))]);
-    if (kind === "voice" && speaker && "speechSynthesis" in window) {
+    if (kind === "voice" && speakerRef.current && "speechSynthesis" in window) {
       for (const text of texts) {
         const u = new SpeechSynthesisUtterance(text);
         u.lang = text === LANG_PROMPT ? "sw-KE" : SPEECH_LANG[lang];
         window.speechSynthesis.speak(u);
       }
     }
+  }
+
+  /** Stop any prompt being read out: on a keypress (like a real phone line) and before recording, so the mic doesn't pick it up. */
+  function hush() {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }
+
+  function toggleSpeaker() {
+    speakerRef.current = !speaker;
+    setSpeaker(!speaker);
+    if (speaker) hush();
   }
 
   function apply(tr: Transition) {
@@ -117,6 +129,7 @@ export function BasicPhone() {
   function onKey(key: string) {
     const s = stateRef.current;
     if (s.step === "idle" || s.step === "working") return;
+    hush();
     if (s.step !== "number" && s.step !== "pin") addLines("key", [key]);
     apply(press(s, key));
   }
@@ -136,7 +149,7 @@ export function BasicPhone() {
   function hangUp() {
     callId.current++;
     pendingAudio.current = null;
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    hush();
     stateRef.current = initialState;
     setState(initialState);
     setLines([]);
@@ -163,7 +176,7 @@ export function BasicPhone() {
       <div className="flex h-[260px] w-full flex-col rounded-md bg-lime-100 font-mono text-[11px] leading-snug text-slate-900 shadow-inner">
         <div className="flex justify-between border-b border-lime-300 px-2 py-1 text-[10px] text-slate-600">
           <span>{inCall ? `☎ In call · ${state.lang === "sw" ? "Kiswahili" : "English"}` : "Ready"}</span>
-          <button onClick={() => setSpeaker(!speaker)} title="Read prompts aloud (browser voice)">{speaker ? "🔊" : "🔈"}</button>
+          <button onClick={toggleSpeaker} title={speaker ? "Mute prompts" : "Read prompts aloud (browser voice)"}>{speaker ? "🔊" : "🔈"}</button>
         </div>
         <div ref={screenRef} className="flex-1 space-y-1 overflow-y-auto px-2 py-1">
           {!inCall && <div className="pt-16 text-center text-slate-500">Press the green button to call</div>}
@@ -181,7 +194,7 @@ export function BasicPhone() {
 
       {state.step === "record" && (
         <div className="w-full rounded-md bg-slate-700 p-2">
-          <AudioPicker onReady={onAudio} />
+          <AudioPicker onRecordStart={hush} onReady={onAudio} />
         </div>
       )}
 
