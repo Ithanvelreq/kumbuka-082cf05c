@@ -101,7 +101,7 @@ bun run build
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same on every PR and on `main`.
-The infra and handler files use Deno `npm:` imports, so `tsc` doesn't check them; Supabase checks them at deploy time.
+The infra and handler files use Deno `npm:` imports, so `tsc` doesn't check them; CI runs `deno check supabase/functions/*/index.ts` (locally: `npx deno check …`).
 
 ## Demo script
 

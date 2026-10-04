@@ -22,7 +22,23 @@ function apiKey(): string {
 const retryable = (status: number) => status === 429 || status >= 500;
 
 /** Non-retryable upstream error (bad request, auth). Surfaces as a 500, not "busy". */
-class GroqRequestError extends Error {}
+class GroqRequestError extends Error {
+  /** Groq's machine-readable error code, e.g. "model_not_found". */
+  code: string | null;
+  constructor(message: string, code: string | null) {
+    super(message);
+    this.code = code;
+  }
+}
+
+function groqErrorCode(body: string): string | null {
+  try {
+    const code = (JSON.parse(body) as { error?: { code?: unknown } }).error?.code;
+    return typeof code === "string" ? code : null;
+  } catch {
+    return null;
+  }
+}
 
 /** `makeBody` is called per attempt so request bodies are never reused after being consumed. */
 export async function groqFetch(path: string, makeBody: () => BodyInit, contentType?: string): Promise<unknown> {
@@ -40,7 +56,7 @@ export async function groqFetch(path: string, makeBody: () => BodyInit, contentT
       if (!retryable(res.status)) {
         // Groq error bodies describe the request problem (model, format), not patient content.
         console.error(`Groq ${path} rejected: ${lastError}`);
-        throw new GroqRequestError(`Groq ${path} failed: ${lastError}`);
+        throw new GroqRequestError(`Groq ${path} failed: ${lastError}`, groqErrorCode(text));
       }
       if (res.status === 429) {
         const wait = Number(res.headers.get("retry-after"));
@@ -58,7 +74,30 @@ export async function groqFetch(path: string, makeBody: () => BodyInit, contentT
   throw new ServiceBusyError();
 }
 
-export async function groqChatJson(system: string, user: string, model = LLM_MODEL): Promise<unknown> {
+/**
+ * Chat models tried in order when the preferred one doesn't exist for this Groq account
+ * (accounts can restrict models; seen on Lovable Cloud: "model_not_found" for llama-3.1-8b-instant).
+ * Small and fast first.
+ */
+const LLM_FALLBACKS = ["llama-3.1-8b-instant", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"];
+/** Models Groq said this account can't use; remembered for the life of the function instance. */
+const unavailableModels = new Set<string>();
+
+export async function groqChatJson(system: string, user: string, preferred = LLM_MODEL): Promise<unknown> {
+  const models = [...new Set([preferred, ...LLM_FALLBACKS])].filter((m) => !unavailableModels.has(m));
+  for (const model of models) {
+    try {
+      return await chatJsonOnce(system, user, model);
+    } catch (err) {
+      if (!(err instanceof GroqRequestError) || err.code !== "model_not_found") throw err;
+      unavailableModels.add(model);
+      console.warn(`Groq model ${model} not available to this account; trying the next one`);
+    }
+  }
+  throw new GroqRequestError(`No Groq chat model available (tried ${models.join(", ")})`, "model_not_found");
+}
+
+async function chatJsonOnce(system: string, user: string, model: string): Promise<unknown> {
   const res = (await groqFetch(
     "/chat/completions",
     () => JSON.stringify({
